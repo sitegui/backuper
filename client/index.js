@@ -1,6 +1,19 @@
+"use strict"
+
 var FileWatcher = require("./FileWatcher.js")
 var Uploader = require("./Uploader.js")
 var config = require("./config.js")
+var fs = require("fs")
+
+// Load the keys
+try {
+	var keys = fs.readFileSync("keys")
+	config.uploader.loginKey = keys.slice(0, 16)
+	config.uploader.aesKey = keys.slice(16, 32)
+	config.uploader.aesIV = keys.slice(16, 48)
+} catch (e) {
+	throw new Error("Keys not found. Execute generateKey.js first")
+}
 
 // Set-up uploader
 Uploader.start(config.uploader)

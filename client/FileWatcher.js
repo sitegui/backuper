@@ -1,6 +1,6 @@
 "use strict"
 
-var FileWatcher = new require("events").EventEmitter
+var FileWatcher = new (require("events").EventEmitter)
 module.exports = FileWatcher
 
 var path = require("path")
@@ -20,7 +20,7 @@ FileWatcher.start = function (config) {
             throw new Error("FileWatcher has already been started")
 		if (err) {
 			// Create a new file watcher profile
-			console.log("[FileWatcher] creating dump file: "+dumpFile)
+			console.log("[FileWatcher] creating dump file: "+_config.dumpFile)
 			_folders = []
 			_queue = {}
             _files = {}

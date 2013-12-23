@@ -20,9 +20,6 @@ module.exports = {
 		host: "localhost",
 		port: 8001,
 		userName: "Guilherme Souza",
-		// This password will be used to encryt all your data
-		// DO NOT LOSE OR CHANGE IT (otherwise all your data will be lost)
-		password: "P}_#7lJ;bJICW_IsL2Jp<",
 		// Time between each reconnection attempts
 		reconnectionTime: 1*60*60*1e3
 	}

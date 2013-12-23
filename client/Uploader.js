@@ -2,7 +2,7 @@
 
 // Control all the upload activity
 
-var Uploader = new require("events").EventEmitter
+var Uploader = new (require("events").EventEmitter)
 module.exports = Uploader
 
 var fs = require("fs")
@@ -18,7 +18,7 @@ Uploader.start = function (config) {
             throw new Error("Uploader has already been started")
 		if (err) {
 			// Create a new dump file
-			console.log("[Uploader] creating dump file: "+dumpFile)
+			console.log("[Uploader] creating dump file: "+_config.dumpFile)
 			
 		} else {
 			// Get the saved data
