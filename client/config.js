@@ -6,8 +6,6 @@ module.exports = {
 	fileWatcher: {
 		// File used to save the current state
 		dumpFile: "fileWatcher.dump",
-		// In ms. Each cicle is a complete tree scan
-		timeBetweenCicles: 1*24*60*60*1e3,
 		// Number of folders to open at each step
 		foldersPerStep: 10,
 		// In ms

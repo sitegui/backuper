@@ -4,11 +4,12 @@ var FileWatcher = require("./FileWatcher.js")
 var Uploader = require("./Uploader.js")
 var config = require("./config.js")
 var fs = require("fs")
+var aP = require("async-protocol")
 
 // Load the keys
 try {
 	var keys = fs.readFileSync("keys")
-	config.uploader.loginKey = keys.slice(0, 16)
+	config.uploader.loginKey = new aP.Token(keys.slice(0, 16))
 	config.uploader.aesKey = keys.slice(16, 32)
 	config.uploader.aesIV = keys.slice(16, 48)
 } catch (e) {

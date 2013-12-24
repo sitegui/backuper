@@ -9,13 +9,15 @@ var fs = require("fs")
 var net = require("net")
 var aP = require("async-protocol")
 
+var CC_LOGIN = aP.registerClientCall(1, "st", "u")
+
 // Start the upload
 // config is an object with the keys "dumpFile", "host", "port", "userName", "password", "reconnectionTime"
 Uploader.start = function (config) {
 	_config = config
 	fs.readFile(_config.dumpFile, {encoding: "utf8"}, function (err, data) {
-        if (_started)
-            throw new Error("Uploader has already been started")
+		if (_started)
+			throw new Error("Uploader has already been started")
 		if (err) {
 			// Create a new dump file
 			console.log("[Uploader] creating dump file: "+_config.dumpFile)
@@ -24,18 +26,19 @@ Uploader.start = function (config) {
 			// Get the saved data
 			data = JSON.parse(data)
 			if (data.format != 1)
-                throw new Error("Invalid format")
+			 throw new Error("Invalid format")
 			
 		}
 		_started = true
 		Uploader.emit("start")
+		reconnect()
 		setInterval(reconnect, _config.reconnectionTime)
 	})
 }
 
 Uploader.queueFile = function (file) {
-    if (!_started)
-        throw new Error("Uploader hasn't started")
+	if (!_started)
+		throw new Error("Uploader hasn't started")
 	
 }
 
@@ -69,5 +72,8 @@ function reconnect() {
 
 // Try to login
 function login() {
-	
+	var data = new aP.Data().addString(_config.userName).addToken(_config.loginKey)
+	_conn.sendCall(CC_LOGIN, data, function (sucess) {
+		console.log(sucess)
+	})
 }
