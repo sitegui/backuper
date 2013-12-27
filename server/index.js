@@ -41,7 +41,7 @@ function login(userName, password, answer, conn) {
 			conn.close()
 		} else {
 			answer(DATA_TRUE)
-			conn.userId = doc._id
+			conn.user = userName
 			console.log(doc._id)
 		}
 	})

@@ -172,7 +172,7 @@ function sha1(string) {
 	return hash.read().toString("base64").substr(0, 27)
 }
 
-// Convert a date to a short UTC string
+// Convert a date to a number (based on UTC time)
 function hashDate(date) {
 	var d, m, y, h, i, s
 	d = date.getUTCDate()
