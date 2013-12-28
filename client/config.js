@@ -19,8 +19,11 @@ module.exports = {
 		dumpFile: "uploader.dump",
 		host: "localhost",
 		port: 8001,
+		uploadPort: 8002,
 		userName: "Guilherme Souza",
 		// Time between each reconnection attempts
-		reconnectionTime: 1*60*60*1e3
+		reconnectionTime: 1*60*60*1e3,
+		// The limit for the average upload speed (in kbps)
+		maxUploadSpeed: 100
 	}
 }

@@ -11,7 +11,7 @@ try {
 	var keys = fs.readFileSync("keys")
 	config.uploader.loginKey = new aP.Token(keys.slice(0, 16))
 	config.uploader.aesKey = keys.slice(16, 32)
-	config.uploader.aesIV = keys.slice(16, 48)
+	config.uploader.aesIV = keys.slice(32, 48)
 } catch (e) {
 	throw new Error("Keys not found. Execute generateKey.js first")
 }

@@ -32,7 +32,6 @@ FileWatcher.start = function (config) {
 				_folders = data.folders
 				_queue = data.queue
 				_tree = new Tree(data.tree)
-				_tree.clear()
 			} else
 				throw new Error("Invalid format")
 		}

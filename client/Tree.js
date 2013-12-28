@@ -8,7 +8,7 @@ var path = require("path")
 function Tree(savedData) {
 	var item
 	this.items = Object.create(null)
-	if (savedData)
+	if (savedData) {
 		for (item in savedData)
 			if (item.charAt(0) == "/")
 				// Folder
@@ -16,6 +16,8 @@ function Tree(savedData) {
 			else
 				// File
 				this.items[item] = savedData[item]
+		this.clear()
+	}
 }
 
 module.exports = Tree
@@ -91,4 +93,24 @@ Tree.prototype.clear = function () {
 				delete that.items[itemName]
 		}
 	})
+}
+
+// Search for any file in the whole tree
+// If none is found, return null
+// Return an object with keys "fullPath", "folder", "fileName" otherwise
+Tree.prototype.getAnyFile = function () {
+	var itemName, item, sub
+	
+	for (itemName in this.items) {
+		item = this.items[itemName]
+		if (!(item instanceof Tree))
+			// A file!
+			return {fullPath: itemName, folder: this, fileName: itemName}
+		if ((sub = item.getAnyFile())) {
+			sub.fullPath = itemName+path.sep+sub.fullPath
+			return sub
+		}
+	}
+	
+	return null
 }
