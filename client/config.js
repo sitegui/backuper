@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 
 // Store all the configurations for the backuper
 module.exports = {
@@ -9,7 +9,9 @@ module.exports = {
 		// Number of folders to open at each step
 		foldersPerStep: 10,
 		// In ms
-		timeBetweenSteps: 5*60*1e3
+		timeBetweenSteps: 5*60*1e3,
+		// Array of RegExps for ignored files and folders
+		ignore: [/^\./]
 	},
 	// Uploader module configs
 	uploader: {

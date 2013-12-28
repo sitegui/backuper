@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 
 var FileWatcher = require("./FileWatcher.js")
 var Uploader = require("./Uploader.js")
@@ -30,6 +30,9 @@ Uploader.on("start", function () {
 	
 	// Plug the fileWatcher and uploader together
 	FileWatcher.on("filechange", function (file) {
-		Uploader.queueFile(file)
+		Uploader.queueFileUpdate(file)
+	})
+	FileWatcher.on("fileremove", function (file) {
+		Uploader.queueFileRemove(file)
 	})
 })

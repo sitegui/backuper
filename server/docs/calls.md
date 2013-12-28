@@ -3,13 +3,13 @@
 ## NOT_LOGGED_IN (1)
 ## OUT_OF_SPACE (2)
 ## INVALID_SESSION (3)
-## ERROR (4)
+## LOGIN_ERROR (4)
 ## WRONG_SIZE (5)
 
 # Client calls
 
 ## login(string userName, token password) -> ()
-Throws: ERROR
+Throws: LOGIN_ERROR
 The password is stored in the first 16B of "keys" file
 
 ## startUpload(Buffer[] filePath, uint mtime, uint size) -> (token uploadId)

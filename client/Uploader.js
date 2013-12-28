@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 
 // Control all the upload activity
 
@@ -7,10 +7,26 @@ module.exports = Uploader
 
 var fs = require("fs")
 var net = require("net")
+var path = require("path")
 var aP = require("async-protocol")
+var Tree = require("./Tree.js")
 
-var CC_LOGIN = aP.registerClientCall(1, "st", "u")
-var CC_CREATE_UPLOAD_SESSION = aP.registerClientCall(2, "", "s")
+var UPDATE = 0
+var REMOVE = 1
+
+// Async-protocol definitions
+var E_NOT_LOGGED_IN = aP.registerException(1)
+var E_OUT_OF_SPACE = aP.registerException(2)
+var E_INVALID_SESSION = aP.registerException(3)
+var E_LOGIN_ERROR = aP.registerException(4)
+var E_WRONG_SIZE = aP.registerException(5)
+
+var CC_LOGIN = aP.registerClientCall(1, "st", "", [E_LOGIN_ERROR])
+var CC_START_UPLOAD = aP.registerClientCall(2, "(B)uu", "t", [E_NOT_LOGGED_IN, E_OUT_OF_SPACE])
+var CC_START_CHUNK_UPLOAD = aP.registerClientCall(3, "tB", "t", [E_NOT_LOGGED_IN, E_INVALID_SESSION])
+var CC_COMMIT_CHUNK = aP.registerClientCall(4, "t", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION])
+var CC_CANCEL_UPLOAD = aP.registerClientCall(5, "t", "", [E_NOT_LOGGED_IN])
+var CC_COMMIT_UPLOAD = aP.registerClientCall(6, "t", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_WRONG_SIZE])
 
 // Start the upload
 // config is an object with the keys "dumpFile", "host", "port", "userName", "reconnectionTime", "loginKey", "aesKey", "aesIV"
@@ -22,7 +38,7 @@ Uploader.start = function (config) {
 		if (err) {
 			// Create a new dump file
 			console.log("[Uploader] creating dump file: "+_config.dumpFile)
-			_files = []
+			_tree = new Tree
 			_uploading = null
 			saveData()
 		} else {
@@ -30,7 +46,7 @@ Uploader.start = function (config) {
 			data = JSON.parse(data)
 			if (data.format != 1)
 				throw new Error("Invalid format")
-			_files = data.files
+			_tree = new Tree(data.tree)
 			_uploading = data.uploading
 		}
 		_started = true
@@ -40,14 +56,12 @@ Uploader.start = function (config) {
 	})
 }
 
-Uploader.queueFile = function (file) {
-	if (!_started)
-		throw new Error("Uploader hasn't started")
-	// TODO: stop upload if affecting the same file
-	if (_files.indexOf(file) == -1) {
-		_files.push(file)
-		saveData()
-	}
+Uploader.queueFileUpdate = function (file) {
+	setFileInfo(file, UPDATE)
+}
+
+Uploader.queueFileRemove = function (file) {
+	setFileInfo(file, REMOVE)
 }
 
 /*
@@ -57,8 +71,21 @@ Internals
 var _config
 var _started = false
 var _conn // the async-protocol connection, checked _conn.loggedIn to see if the login was sucessful
-var _files // files queued to upload
+var _tree // files queued to update
 var _uploading // null if idle, an object with keys "id", "file", "mtime", "size" otherwise
+
+// Aux function for queueFileUpdate and queueFileRemove
+function setFileInfo(file, info) {
+	var folder, parts
+	if (!_started)
+		throw new Error("Uploader hasn't started")
+	// TODO: stop upload if affecting the same file
+	parts = file.split(path.sep)
+	file = parts.pop()
+	folder = _tree.getFolder(parts.join(path.sep))
+	folder.setFileInfo(file, info)
+	saveData()
+}
 
 // Try to connect with the backuper server
 // Ignore if already connected and logged in
@@ -66,20 +93,18 @@ function reconnect() {
 	if (_conn && _conn.loggedIn)
 		// Already connected
 		return
-	if (!_uploading && !_files.length)
+	if (!_uploading && _tree.isEmpty())
 		// There is no work to do
 		return
 	var conn = net.connect({port: _config.port, host: _config.host})
-	conn.on("error", function () {
-		// Just ignore
-	})
-	conn.on("connect", function () {
+	conn.on("error", function () {})
+	conn.once("connect", function () {
 		_conn = new aP(conn, true)
+		_conn.once("close", function () {
+			_conn = null
+		})
 		_conn.loggedIn = false
 		login()
-	})
-	conn.on("close", function () {
-		_conn = null
 	})
 }
 
@@ -87,16 +112,17 @@ function reconnect() {
 // In case of sucess, start the uploading sequence
 function login() {
 	var data = new aP.Data().addString(_config.userName).addToken(_config.loginKey)
-	_conn.sendCall(CC_LOGIN, data, function (sucess) {
-		_conn.loggedIn = sucess
-		if (sucess) stepUploadSequence()
-		else console.log("[Uploader] login failed")
+	_conn.sendCall(CC_LOGIN, data, function () {
+		_conn.loggedIn = true
+		stepUploadSequence()
+	}, function () {
+		console.log("[Uploader] login failed")
+		_conn.close()
 	})
 }
 
 // Do a single step in the upload process
 function stepUploadSequence() {
-	var file
 	if (!_uploading)
 		pickFileToUpload()
 	else if (!_uploading.id)
@@ -106,7 +132,9 @@ function stepUploadSequence() {
 // First step in the upload process
 // Extract a file from the queue
 function pickFileToUpload() {
-	if (!_files.length) {
+	// 
+	
+	if (_tree.isEmpty()) {
 		// No more files to play with, just close the connection
 		_conn.close()
 		return
@@ -143,7 +171,7 @@ var saveData = (function () {
 	var doSave = function () {
 		var data = {}
 		data.format = 1
-		data.files = _files
+		data.tree = _tree
 		data.uploading = _uploading
 		try {
 			fs.writeFileSync(_config.dumpFile, JSON.stringify(data))
@@ -151,11 +179,9 @@ var saveData = (function () {
 			console.error("[Uploader] Error while trying to save data into "+_config.dumpFile)
 		}
 		interval = null
-		console.log("[Uploader] Saved")
 	}
 	
 	return function () {
-		console.log("[Uploader] Going to save")
 		if (interval)
 			clearTimeout(interval)
 		interval = setTimeout(doSave, 100)
@@ -164,12 +190,11 @@ var saveData = (function () {
 
 // Convert a date to a number (based on UTC time)
 function hashDate(date) {
-	var d, m, y, h, i, s
+	var d, m, y, h, i
 	d = date.getUTCDate()
 	m = date.getUTCMonth()
-	y = date.getUTCFullYear()
+	y = date.getUTCFullYear()-1990
 	h = date.getUTCHours()
 	i = date.getUTCMinutes()
-	s = date.getUTCSeconds()
-	return s+60*(i+60*(h+24*(d+31*(m+12*y))))
+	return i+60*(h+24*(d+31*(m+12*y)))
 }

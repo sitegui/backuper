@@ -1,18 +1,19 @@
-"use strict"
+"use strict";
 
 var FileWatcher = new (require("events").EventEmitter)
 module.exports = FileWatcher
 
 var path = require("path")
 var fs = require("fs")
-var crypto = require("crypto")
+var Tree = require("./Tree.js")
 
 // Start the watcher
 // It'll awake from the saved state (or start from scratch if it doesn't exist)
-// config is an object with the keys "dumpFile", "foldersPerStep", "timeBetweenSteps"
+// config is an object with the keys "dumpFile", "foldersPerStep", "timeBetweenSteps", "ignore"
 // This object emits two events:
 // start(), right after the watcher has done starting
 // filechange(file), when a file change is detected (file is an absolute path)
+// fileremove(file), when detects a file was deleted (file is an absolute path)
 FileWatcher.start = function (config) {
 	_config = config
 	fs.readFile(_config.dumpFile, {encoding: "utf8"}, function (err, data) {
@@ -23,14 +24,15 @@ FileWatcher.start = function (config) {
 			console.log("[FileWatcher] creating dump file: "+_config.dumpFile)
 			_folders = []
 			_queue = {}
-			_files = {}
+			_tree = new Tree()
 		} else {
 			// Get the data from the saved format
 			data = JSON.parse(data)
 			if (data.format == 1) {
 				_folders = data.folders
 				_queue = data.queue
-				_files = data.files
+				_tree = new Tree(data.tree)
+				_tree.clear()
 			} else
 				throw new Error("Invalid format")
 		}
@@ -83,7 +85,7 @@ FileWatcher.removeFolder = function (folder) {
 FileWatcher.getFolders = function () {
 	if (!_started)
 		throw new Error("FileWatcher hasn't started")
-	return _folders
+	return _folders.slice(0)
 }
 
 /*
@@ -93,7 +95,7 @@ var _folders // array of absolute paths
 var _queue // object, where each key is an element of _folders and each values is an array of absolute paths inside the key folder
 var _config // the config object (with keys "dumpFile", "foldersPerStep", "timeBetweenSteps")
 var _started = false // flag if this module has been started
-var _files // the toUTCString(modificationTime) for each know file, stored as sha1(fileName)
+var _tree // an Tree instance to store the mtime of each file
 
 // Save the current data into the disk
 var saveData = function () {
@@ -101,7 +103,7 @@ var saveData = function () {
 	data.format = 1
 	data.folders = _folders
 	data.queue = _queue
-	data.files = _files
+	data.tree = _tree
 	fs.writeFile(_config.dumpFile, JSON.stringify(data), function (err) {
 		if (err)
 			console.error("[FileWatcher] Error while trying to save data into "+_config.dumpFile)
@@ -133,31 +135,46 @@ var runStep = function () {
 	setTimeout(runStep, _config.timeBetweenSteps)
 }
 
-// Read the content of the given folder and queue new itens
+// Read the content of the given folder and queue new items
 var readFolderFromQueue = function (queue) {
 	var folder = queue.shift()
-	fs.readdir(folder, function (err, files) {
+	var folderTree = _tree.getFolder(folder)
+	fs.readdir(folder, function (err, items) {
 		if (!err) {
-			files.forEach(function (file) {
-				// Ignore files starting with "."
-				if (file.charAt(0) == ".")
-					return
-				
+			// Filter out the ignored items
+			items = items.filter(function (item) {
+				return _config.ignore.every(function (regexp) {
+					return !item.match(regexp)
+				})
+			})
+			
+			// Check for deleted items
+			folderTree.getItems().filter(function (item) {
+				return items.indexOf(item) == -1
+			}).forEach(function (item) {
+				// Update the tree and warn the uploader
+				if (folderTree.isFile(item))
+					FileWatcher.emit("fileremove", path.join(folder, item))
+				folderTree.removeItem(item)
+			})
+			
+			// Watch all considered items
+			items.forEach(function (item) {
 				// Get absolute path
-				file = path.join(folder, file)
-				fs.stat(file, function (err, stats) {
+				var itemPath = path.join(folder, item)
+				fs.stat(itemPath, function (err, stats) {
 					var hash
 					if (err) return
 					if (stats.isFile()) {
-						hash = sha1(file)
-						if (!(hash in _files) || _files[hash] != hashDate(stats.mtime)) {
+						hash = hashDate(stats.mtime)
+						if (folderTree.getFileInfo(item) != hash) {
 							// Update the data and execute the callback
-							_files[hash] = hashDate(stats.mtime)
-							FileWatcher.emit("filechange", file)
+							folderTree.setFileInfo(item, hash)
+							FileWatcher.emit("filechange", itemPath)
 						}
 					} else if (stats.isDirectory()) {
 						// Add to the original queue
-						queue.push(file)
+						queue.push(itemPath)
 					}
 				})
 			})
@@ -165,21 +182,13 @@ var readFolderFromQueue = function (queue) {
 	})
 }
 
-// Return the sha1 hash of the given string
-function sha1(string) {
-	var hash = crypto.createHash("sha1")
-	hash.end(string)
-	return hash.read().toString("base64").substr(0, 27)
-}
-
 // Convert a date to a number (based on UTC time)
 function hashDate(date) {
-	var d, m, y, h, i, s
+	var d, m, y, h, i
 	d = date.getUTCDate()
 	m = date.getUTCMonth()
-	y = date.getUTCFullYear()
+	y = date.getUTCFullYear()-1990
 	h = date.getUTCHours()
 	i = date.getUTCMinutes()
-	s = date.getUTCSeconds()
-	return s+60*(i+60*(h+24*(d+31*(m+12*y))))
+	return i+60*(h+24*(d+31*(m+12*y)))
 }
