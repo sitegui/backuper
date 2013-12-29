@@ -74,9 +74,9 @@ Internals
 
 var _config
 var _started = false
-var _conn // the async-protocol connection, checked _conn.loggedIn to see if the login was sucessful
+var _conn // the async-protocol connection
 var _tree // files queued to update
-var _uploading // null if idle, an object with keys "id", "file", "mtime", "size", "sentBytes" otherwise
+var _uploading // null if idle, an object with keys "id", "file", "mtime", "size", "sentChunks" otherwise
 
 // Aux function for queueFileUpdate and queueFileRemove
 function setFileInfo(file, info) {
@@ -95,7 +95,7 @@ function setFileInfo(file, info) {
 // Try to connect with the backuper server
 // Ignore if already connected and logged in
 function reconnect() {
-	if (_conn && _conn.loggedIn)
+	if (_conn)
 		// Already connected
 		return
 	if (!_uploading && _tree.isEmpty())
@@ -108,7 +108,6 @@ function reconnect() {
 		_conn.once("close", function () {
 			_conn = null
 		})
-		_conn.loggedIn = false
 		login()
 	})
 }
@@ -118,7 +117,6 @@ function reconnect() {
 function login() {
 	var data = new aP.Data().addString(_config.userName).addToken(_config.loginKey)
 	_conn.sendCall(CC_LOGIN, data, function () {
-		_conn.loggedIn = true
 		stepUploadSequence()
 	}, function () {
 		console.log("[Uploader] login failed")
@@ -128,11 +126,13 @@ function login() {
 
 // Do a single step in the upload process
 function stepUploadSequence() {
-	if (!_uploading)
+	if (!_conn)
+		return
+	else if (!_uploading)
 		pickFileToUpload()
 	else if (!_uploading.id)
 		createUploadSession()
-	else if (_uploading.sentBytes < _uploading.size)
+	else if (_uploading.sentChunks*CHUNK_SIZE < _uploading.size)
 		startNewChunkUpload()
 	else
 		endUpload()
@@ -141,7 +141,7 @@ function stepUploadSequence() {
 // First step in the upload process
 // Extract a file from the queue
 function pickFileToUpload() {
-	console.log("pickFileToUpload")
+	console.log("[Uploader] pickFileToUpload")
 	var file, mode
 	
 	// Pick any file in the update tree
@@ -156,8 +156,6 @@ function pickFileToUpload() {
 	
 	if (mode == REMOVE) {
 		// Send the remove command to the server
-		if (!_conn || !_conn.loggedIn)
-			return
 		_conn.sendCall(CC_REMOVE_FILE, new aP.Data().addBufferArray(encodeFilePath(file.fullPath)))
 		file.folder.removeItem(file.fileName)
 		saveData()
@@ -172,7 +170,7 @@ function pickFileToUpload() {
 				_uploading.file = file.fullPath
 				_uploading.size = stats.size
 				_uploading.mtime = hashDate(stats.mtime)
-				_uploading.sentBytes = 0
+				_uploading.sentChunks = 0
 			}
 			file.folder.removeItem(file.fileName)
 			saveData()
@@ -184,12 +182,8 @@ function pickFileToUpload() {
 // Second step in the upload process
 // Create a upload session in the server
 function createUploadSession() {
-	console.log("createUploadSession", _uploading.file)
+	console.log("[Uploader] createUploadSession", _uploading.file)
 	var data = new aP.Data
-	
-	// Check the connection
-	if (!_conn || !_conn.loggedIn)
-		return
 	
 	// Create the data package (Buffer[] filePath, uint mtime, uint size)
 	data.addBufferArray(encodeFilePath(_uploading.file)).addUint(_uploading.mtime).addUint(_uploading.size)
@@ -210,7 +204,7 @@ function createUploadSession() {
 
 // Load the next chunk and start the chunk upload session
 function startNewChunkUpload() {
-	console.log("startNewChunkUpload", _uploading)
+	console.log("[Uploader] startNewChunkUpload", _uploading.file)
 	var ignore = function () {
 		// Ignore this file
 		if (_conn)
@@ -233,7 +227,7 @@ function startNewChunkUpload() {
 	// Load and encrypt the chunk
 	fs.open(_uploading.file, "r", function (err, fd) {
 		if (err) return ignore()
-		fs.read(fd, new Buffer(CHUNK_SIZE), 0, CHUNK_SIZE, _uploading.sentBytes, function (err, bytesRead, buffer) {
+		fs.read(fd, new Buffer(CHUNK_SIZE), 0, CHUNK_SIZE, _uploading.sentChunks*CHUNK_SIZE, function (err, bytesRead, buffer) {
 			if (err) return ignore()
 			
 			// Encode the buffer and start the chunk session
@@ -248,7 +242,7 @@ function startNewChunkUpload() {
 
 // Open an auxiliary connection and send the encoded chunk
 function uploadChunk(encodedChunk, chunkId) {
-	console.log("uploadChunk", _uploading)
+	console.log("[Uploader] uploadChunk", _uploading.file)
 	var conn, nextTime
 	
 	// Get the minimum time when the next chunk upload should start
@@ -276,7 +270,7 @@ function uploadChunk(encodedChunk, chunkId) {
 			// Check chunk status
 			_conn.sendCall(CC_COMMIT_CHUNK, new aP.Data().addString(chunkId), function () {
 				// Chunk uploaded sucessfuly
-				_uploading.sentBytes += encodedChunk.length
+				_uploading.sentChunks++
 				saveData()
 				continueUpload()
 			}, function () {
@@ -289,9 +283,7 @@ function uploadChunk(encodedChunk, chunkId) {
 
 // Finish the upload process
 function endUpload() {
-	console.log("endUpload", _uploading)
-	if (!_conn)
-		return
+	console.log("[Uploader] endUpload", _uploading.file)
 	_conn.sendCall(CC_COMMIT_UPLOAD, _uploading.id, function () {
 		// Fine, done!
 		_uploading = null
@@ -300,8 +292,8 @@ function endUpload() {
 	}, function (type) {
 		// Something went wrong, put the file back in the queue
 		console.log("[Uploader] fatal error on file upload: "+type)
-		_uploading = null
 		setFileInfo(_uploading.file, UPDATE)
+		_uploading = null
 		stepUploadSequence()
 	})
 }
@@ -319,7 +311,7 @@ var saveData = (function () {
 		try {
 			fs.writeFileSync(_config.dumpFile, JSON.stringify(data))
 		} catch (e) {
-			console.error("[Uploader] Error while trying to save data into "+_config.dumpFile)
+			console.log("[Uploader] Error while trying to save data into "+_config.dumpFile)
 		}
 		interval = null
 	}

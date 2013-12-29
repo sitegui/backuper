@@ -13,7 +13,7 @@ try {
 	config.uploader.aesKey = keys.slice(16, 32)
 	config.uploader.aesIV = keys.slice(32, 48)
 } catch (e) {
-	throw new Error("Keys not found. Execute generateKey.js first")
+	throw new Error("Keys not found. Execute generateKeys.js first")
 }
 
 // Set-up uploader

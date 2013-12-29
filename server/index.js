@@ -6,8 +6,7 @@ var config = require("./config.js")
 var MongoClient = require("mongodb").MongoClient
 var fs = require("fs")
 var crypto = require("crypto")
-
-// TODO: use path.sep instead of "/"
+var path = require("path")
 
 // Async-protocol definitions
 var E_NOT_LOGGED_IN = aP.registerException(1)
@@ -24,6 +23,10 @@ var CC_COMMIT_CHUNK = aP.registerClientCall(4, "s", "", [E_NOT_LOGGED_IN, E_INVA
 var CC_CANCEL_UPLOAD = aP.registerClientCall(5, "s", "", [E_NOT_LOGGED_IN])
 var CC_COMMIT_UPLOAD = aP.registerClientCall(6, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_WRONG_SIZE])
 var CC_REMOVE_FILE = aP.registerClientCall(7, "(B)", "", [E_NOT_LOGGED_IN])
+
+var CHUNK_SIZE = 1*1024*1024 // 1 MiB
+var TEMP_FOLDER = "data"+path.sep+"temp"+path.sep
+var CHUNKS_FOLDER = "data"+path.sep+"temp"+path.sep+"chunks"+path.sep
 
 // Save the data about the current chunk uploads
 // The keys are the session ids (hex-encoded) and the values are objets like {hash: Buffer, upload: <the-bd-upload-doc>}
@@ -57,7 +60,7 @@ net.createServer(function (conn) {
 
 // Create the server for the upload port
 net.createServer(function (conn) {
-	var buffer = new Buffer
+	var buffer = new Buffer(0)
 	var stream
 	var onreadable = function () {
 		var data = conn.read(), id
@@ -71,7 +74,7 @@ net.createServer(function (conn) {
 				return conn.close()
 			
 			// Dump all bytes after the 32º to a temp file
-			stream = fs.createWriteStream("data/temp/chunks/"+id)
+			stream = fs.createWriteStream(CHUNKS_FOLDER+id)
 			stream.write(buffer.slice(32))
 			conn.pipe(stream)
 		}
@@ -108,7 +111,9 @@ function login(userName, password, answer, conn) {
 }
 
 function startUpload(filePath, mtime, size, answer, user) {
-	console.log("startUpload", filePath, mtime, size)
+	console.log("startUpload", filePath.map(function (each) {
+		return each.toString("hex")
+	}).join(path.sep), mtime, size)
 	
 	// TODO: check user quota
 	
@@ -117,7 +122,8 @@ function startUpload(filePath, mtime, size, answer, user) {
 		user: user.userName,
 		filePath: filePath,
 		mtime: mtime,
-		size: size
+		size: size,
+		receivedChunks: 0
 	}
 	_db.collection("uploads").insert(data, function (err) {
 		if (err) throw err
@@ -149,7 +155,7 @@ function commitChunk(chunkId, answer, user) {
 	delete _chunks[chunkId]
 	
 	// Check the data
-	fs.readFile("data/temp/chunk/"+chunkId, function (err, data) {
+	fs.readFile(CHUNKS_FOLDER+chunkId, function (err, data) {
 		if (err)
 			return answer(new aP.Exception(E_CORRUPTED_DATA))
 		
@@ -161,11 +167,22 @@ function commitChunk(chunkId, answer, user) {
 			return answer(new aP.Exception(E_CORRUPTED_DATA))
 		
 		// Append to the upload session file
-		fs.appendFile("data/temp/"+chunk.upload.localName, data, function (err) {
+		fs.appendFile(TEMP_FOLDER+chunk.upload.localName, data, function (err) {
 			if (err)
 				answer(new aP.Exception(E_CORRUPTED_DATA))
-			else
+			else {
+				// Update the number of received chunks in the db
+				var query = {user: user.userName, localName: chunk.upload.localName}
+				_db.collection("uploads").update(query, {$inc: {receivedChunks: 1}}, function (err) {
+					if (err) throw err
+				})
+				
+				// Done
 				answer()
+			}
+		})
+		fs.unlink(CHUNKS_FOLDER+chunkId, function (err) {
+			if (err) throw err
 		})
 	})
 }
@@ -177,7 +194,7 @@ function cancelUpload(uploadId, answer, user) {
 		if (err) throw err
 		if (upload) {
 			// Remove the file
-			fs.unlink("data/temp/"+upload.localName, function () {})
+			fs.unlink(TEMP_FOLDER+upload.localName, function () {})
 			
 			// Remove from the database
 			_db.collection("uploads").remove({localName: uploadId, user: user.userName}, function (err) {
@@ -192,22 +209,33 @@ function commitUpload(uploadId, answer, user) {
 	console.log("commitUpload", uploadId)
 	
 	// Check the session in the database
-	_db.collection("uploads").findOne({localName: uploadId, user: user.userName}, function (err, upload) {
+	_db.collection("uploads").findAndRemove({localName: uploadId, user: user.userName}, [], function (err, upload) {
 		if (err) throw err
 		if (!upload) return answer(new aP.Exception(E_INVALID_SESSION))
 		
 		// Check the size
-		fs.stat("data/temp/"+upload.localName, function (err, stat) {
+		if (upload.receivedChunks != Math.ceil(upload.size/CHUNK_SIZE))
+			return answer(new aP.Exception(E_WRONG_SIZE))
+		
+		// Move the file
+		fs.rename(TEMP_FOLDER+upload.localName, user.localFolder+upload.localName, function (err) {
 			if (err) return answer(new aP.Exception(E_INVALID_SESSION))
-			if (stat.size != upload.size) return answer(new aP.Exception(E_WRONG_SIZE))
-			
-			// Move the file
-			fs.rename("data/temp/"+upload.localName, "data/"+user.localFolder+"/"+upload.filePath.map(function (each) {
-				return each.toString("hex")
-			}).join("-"), function (err) {
-				if (err) return answer(new aP.Exception(E_INVALID_SESSION))
-				answer()
-			})
+			answer()
+		})
+		
+		// Save in the database
+		// TODO: update version and old flag
+		var file = {
+			user: user.userName,
+			path: upload.filePath,
+			size: upload.size,
+			mtime: upload.mtime,
+			version: 17,
+			old: false,
+			localName: user.localFolder+upload.localName
+		}
+		_db.collection("files").insert(file, function (err) {
+			if (err) throw err
 		})
 	})
 }
