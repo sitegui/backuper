@@ -16,7 +16,7 @@ MongoClient.connect(config.mongoURL, function (err, db) {
 	var n = 0
 	var check = function () {
 		n++
-		if (n == 3)
+		if (n == 2)
 			db.close()
 	}
 	

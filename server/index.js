@@ -151,8 +151,7 @@ function commitChunk(chunkId, answer, user) {
 	
 	// Check the data
 	fs.readFile(config.tempChunksFolder+chunkId, function (err, data) {
-		if (err)
-			return answer(new aP.Exception(E_CORRUPTED_DATA))
+		throwError(err)
 		
 		// Check the hash
 		var hash = crypto.createHash("sha1")
@@ -163,18 +162,16 @@ function commitChunk(chunkId, answer, user) {
 		
 		// Append to the upload session file
 		fs.appendFile(config.tempFolder+chunk.upload.localName, data, function (err) {
-			if (err)
-				answer(new aP.Exception(E_CORRUPTED_DATA))
-			else {
-				// Update the number of received chunks in the db
-				var query = {user: user.userName, localName: chunk.upload.localName}
-				_db.collection("uploads").update(query, {$inc: {receivedChunks: 1}}, throwError)
-				
-				console.log("[server] chunk received for upload %s", chunk.upload.localName)
-				
-				// Done
-				answer()
-			}
+			throwError(err)
+			
+			// Update the number of received chunks in the db
+			var query = {user: user.userName, localName: chunk.upload.localName}
+			_db.collection("uploads").update(query, {$inc: {receivedChunks: 1}}, throwError)
+			
+			console.log("[server] chunk received for upload %s", chunk.upload.localName)
+			
+			// Done
+			answer()
 		})
 		fs.unlink(config.tempChunksFolder+chunkId, throwError)
 	})
@@ -208,8 +205,8 @@ function commitUpload(uploadId, answer, user) {
 		
 		// Move the file
 		var finalLocalName = config.dataFolder+user.localName+path.sep+upload.localName
-		fs.rename(config.tempFolder+upload.localName, finalLocalName, function (err) {
-			if (err) return answer(new aP.Exception(E_INVALID_SESSION))
+		move(config.tempFolder+upload.localName, finalLocalName, function (err) {
+			throwError(err)
 			answer()
 		})
 		
@@ -254,4 +251,20 @@ function getRandomHexString() {
 	for (i=0; i<32; i++)
 		str += chars[Math.floor(Math.random()*16)]
 	return str
+}
+
+// Move a file (posibly across disks)
+// Work similar to fs.rename
+function move(oldPath, newPath, callback) {
+	fs.rename(oldPath, newPath, function (err) {
+		if (err && err.code == "EXDEV") {
+			var source = fs.createReadStream(oldPath)
+			var destination = fs.createWriteStream(newPath)
+			source.pipe(destination)
+			destination.once("finish", function () {
+				fs.unlink(oldPath, callback)
+			})
+		} else
+			callback(err)
+	})
 }

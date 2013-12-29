@@ -116,6 +116,7 @@ function reconnect() {
 // In case of sucess, start the uploading sequence
 function login() {
 	var data = new aP.Data().addString(_config.userName).addToken(_config.loginKey)
+	if (!_conn) return
 	_conn.sendCall(CC_LOGIN, data, function () {
 		stepUploadSequence()
 	}, function () {
@@ -155,6 +156,7 @@ function pickFileToUpload() {
 	
 	if (mode == REMOVE) {
 		// Send the remove command to the server
+		if (!_conn) return
 		_conn.sendCall(CC_REMOVE_FILE, new aP.Data().addBuffer(encodeFilePath(file.fullPath)))
 		file.folder.removeItem(file.fileName)
 		saveData()
@@ -187,6 +189,7 @@ function createUploadSession() {
 	data.addBuffer(encodeFilePath(_uploading.file)).addUint(_uploading.mtime).addUint(_uploading.size)
 	
 	// Send
+	if (!_conn) return
 	_conn.sendCall(CC_START_UPLOAD, data, function (id) {
 		// Save the session id and continue the process
 		_uploading.id = id
@@ -226,11 +229,13 @@ function startNewChunkUpload() {
 	fs.open(_uploading.file, "r", function (err, fd) {
 		if (err) return ignore()
 		fs.read(fd, new Buffer(CHUNK_SIZE), 0, CHUNK_SIZE, _uploading.sentChunks*CHUNK_SIZE, function (err, bytesRead, buffer) {
+			fs.close(fd, function () {})
 			if (err) return ignore()
 			
 			// Encode the buffer and start the chunk session
 			buffer = encodeBuffer(buffer.slice(0, bytesRead))
 			var data = new aP.Data().addString(_uploading.id).addBuffer(sha1(buffer))
+			if (!_conn) return
 			_conn.sendCall(CC_START_CHUNK_UPLOAD, data, function (chunkId) {
 				uploadChunk(buffer, chunkId)
 			}, ignore)
@@ -280,6 +285,7 @@ function uploadChunk(encodedChunk, chunkId) {
 
 // Finish the upload process
 function endUpload() {
+	if (!_conn) return
 	_conn.sendCall(CC_COMMIT_UPLOAD, _uploading.id, function () {
 		// Fine, done!
 		_uploading = null
