@@ -195,7 +195,7 @@ function createUploadSession() {
 		stepUploadSequence()
 	})
 	source.pipe(hash)
-	hash.once("finish", function () {
+	hash.once("readable", function () {
 		var data = new aP.Data
 		
 		if (!fine || !_conn)
