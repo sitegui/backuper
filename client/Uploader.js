@@ -26,8 +26,8 @@ var E_CORRUPTED_DATA = aP.registerException(6)
 
 var CC_LOGIN = aP.registerClientCall(1, "st", "", [E_LOGIN_ERROR])
 var CC_START_UPLOAD = aP.registerClientCall(2, "(B)uu", "s", [E_NOT_LOGGED_IN, E_OUT_OF_SPACE])
-var CC_START_CHUNK_UPLOAD = aP.registerClientCall(3, "sB", "t", [E_NOT_LOGGED_IN, E_INVALID_SESSION])
-var CC_COMMIT_CHUNK = aP.registerClientCall(4, "t", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_CORRUPTED_DATA])
+var CC_START_CHUNK_UPLOAD = aP.registerClientCall(3, "sB", "s", [E_NOT_LOGGED_IN, E_INVALID_SESSION])
+var CC_COMMIT_CHUNK = aP.registerClientCall(4, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_CORRUPTED_DATA])
 var CC_CANCEL_UPLOAD = aP.registerClientCall(5, "s", "", [E_NOT_LOGGED_IN])
 var CC_COMMIT_UPLOAD = aP.registerClientCall(6, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_WRONG_SIZE])
 var CC_REMOVE_FILE = aP.registerClientCall(7, "(B)", "", [E_NOT_LOGGED_IN])
@@ -141,6 +141,7 @@ function stepUploadSequence() {
 // First step in the upload process
 // Extract a file from the queue
 function pickFileToUpload() {
+	console.log("pickFileToUpload")
 	var file, mode
 	
 	// Pick any file in the update tree
@@ -183,6 +184,7 @@ function pickFileToUpload() {
 // Second step in the upload process
 // Create a upload session in the server
 function createUploadSession() {
+	console.log("createUploadSession", _uploading.file)
 	var data = new aP.Data
 	
 	// Check the connection
@@ -208,6 +210,7 @@ function createUploadSession() {
 
 // Load the next chunk and start the chunk upload session
 function startNewChunkUpload() {
+	console.log("startNewChunkUpload", _uploading)
 	var ignore = function () {
 		// Ignore this file
 		if (_conn)
@@ -236,19 +239,20 @@ function startNewChunkUpload() {
 			// Encode the buffer and start the chunk session
 			buffer = encodeBuffer(buffer.slice(0, bytesRead))
 			var data = new aP.Data().addString(_uploading.id).addBuffer(sha1(buffer))
-			_conn.sendCall(CC_START_CHUNK_UPLOAD, data, function (chunkToken) {
-				uploadChunk(buffer, chunkToken)
+			_conn.sendCall(CC_START_CHUNK_UPLOAD, data, function (chunkId) {
+				uploadChunk(buffer, chunkId)
 			}, ignore)
 		})
 	})
 }
 
 // Open an auxiliary connection and send the encoded chunk
-function uploadChunk(encodedChunk, chunkToken) {
+function uploadChunk(encodedChunk, chunkId) {
+	console.log("uploadChunk", _uploading)
 	var conn, nextTime
 	
 	// Get the minimum time when the next chunk upload should start
-	nextTime = Date.now()+8*(encodedChunk.length+16)/_config.maxUploadSpeed
+	nextTime = Date.now()+8*(encodedChunk.length+32)/_config.maxUploadSpeed
 	var continueUpload = function () {
 		var delta = nextTime-Date.now()
 		if (delta > 0)
@@ -260,17 +264,17 @@ function uploadChunk(encodedChunk, chunkToken) {
 	// Open a new connection and send the data
 	conn = net.connect({port: _config.uploadPort, host: _config.host})
 	conn.once("connect", function () {
-		conn.write(chunkToken.buffer)
+		conn.write(chunkId)
 		conn.end(encodedChunk)
 	})
 	conn.once("error", function () {})
 	conn.once("close", function () {
-		if (conn.bytesWritten != 16+encodedChunk.length)
+		if (conn.bytesWritten != 32+encodedChunk.length)
 			// Try to send the chunk again
 			continueUpload()
 		else if (_conn) {
 			// Check chunk status
-			_conn.sendCall(CC_COMMIT_CHUNK, new aP.Data().addToken(chunkToken), function () {
+			_conn.sendCall(CC_COMMIT_CHUNK, new aP.Data().addString(chunkId), function () {
 				// Chunk uploaded sucessfuly
 				_uploading.sentBytes += encodedChunk.length
 				saveData()
@@ -285,6 +289,7 @@ function uploadChunk(encodedChunk, chunkToken) {
 
 // Finish the upload process
 function endUpload() {
+	console.log("endUpload", _uploading)
 	if (!_conn)
 		return
 	_conn.sendCall(CC_COMMIT_UPLOAD, _uploading.id, function () {

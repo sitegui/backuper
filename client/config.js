@@ -21,8 +21,8 @@ module.exports = {
 		port: 8001,
 		uploadPort: 8002,
 		userName: "Guilherme Souza",
-		// Time between each reconnection attempts
-		reconnectionTime: 1*60*60*1e3,
+		// Time between reconnection attempts (in ms)
+		reconnectionTime: 5*60*1e3,
 		// The limit for the average upload speed (in kbps)
 		maxUploadSpeed: 100
 	}

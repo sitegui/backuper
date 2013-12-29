@@ -18,14 +18,14 @@ Throws: NOT_LOGGED_IN, OUT_OF_SPACE
 Create a new upload session for a given file
 Return the session id that should be used to upload each file chunk
 
-## 3: startChunkUpload(string uploadId, Buffer hash) -> (token chunkId)
+## 3: startChunkUpload(string uploadId, Buffer hash) -> (string chunkId)
 Throws: NOT_LOGGED_IN, INVALID_SESSION
 Create a chunk upload session
 Hash is the SHA1 hash of the chunk data
 To continue the upload, the client should open another connection to port 8002,
 and send the token and the whole chunk then close the socket
 
-## 4: commitChunk(token chunkId) -> ()
+## 4: commitChunk(string chunkId) -> ()
 Throws: NOT_LOGGED_IN, INVALID_SESSION, CORRUPTED_DATA
 Don't call it more than once for the same chunk upload session
 
