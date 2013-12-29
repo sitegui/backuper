@@ -9,7 +9,7 @@ module.exports = {
 		// Number of folders to open at each step
 		foldersPerStep: 10,
 		// In ms
-		timeBetweenSteps: 1*60*1e3,
+		timeBetweenSteps: 45*1e3,
 		// Array of RegExps for ignored files and folders
 		ignore: [/^\./]
 	},
@@ -22,8 +22,8 @@ module.exports = {
 		uploadPort: 8002,
 		userName: "Guilherme Souza",
 		// Time between reconnection attempts (in ms)
-		reconnectionTime: 1*60*1e3,
+		reconnectionTime: 45*1e3,
 		// The limit for the average upload speed (in kbps)
-		maxUploadSpeed: 500
+		maxUploadSpeed: 1000
 	}
 }

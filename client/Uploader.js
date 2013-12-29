@@ -33,7 +33,7 @@ var CC_COMMIT_UPLOAD = aP.registerClientCall(6, "s", "", [E_NOT_LOGGED_IN, E_INV
 var CC_REMOVE_FILE = aP.registerClientCall(7, "B", "", [E_NOT_LOGGED_IN])
 
 // Start the upload
-// config is an object with the keys "dumpFile", "host", "port", "uploadPort", "userName", "reconnectionTime", "loginKey", "aesKey", "maxUploadSpeed"
+// config is an object with the keys "dumpFile", "host", "port", "uploadPort", "userName", "reconnectionTime", "loginKey", "aesKey", "aesIV", "maxUploadSpeed"
 Uploader.start = function (config) {
 	_config = config
 	fs.readFile(_config.dumpFile, {encoding: "utf8"}, function (err, data) {
@@ -141,7 +141,6 @@ function stepUploadSequence() {
 // First step in the upload process
 // Extract a file from the queue
 function pickFileToUpload() {
-	console.log("[Uploader] pickFileToUpload")
 	var file, mode
 	
 	// Pick any file in the update tree
@@ -182,7 +181,6 @@ function pickFileToUpload() {
 // Second step in the upload process
 // Create a upload session in the server
 function createUploadSession() {
-	console.log("[Uploader] createUploadSession", _uploading.file)
 	var data = new aP.Data
 	
 	// Create the data package (Buffer[] filePath, uint mtime, uint size)
@@ -192,6 +190,7 @@ function createUploadSession() {
 	_conn.sendCall(CC_START_UPLOAD, data, function (id) {
 		// Save the session id and continue the process
 		_uploading.id = id
+		console.log("[Uploader] upload session %s for %s", id, _uploading.file)
 		saveData()
 		stepUploadSequence()
 	}, function (type) {
@@ -204,7 +203,6 @@ function createUploadSession() {
 
 // Load the next chunk and start the chunk upload session
 function startNewChunkUpload() {
-	console.log("[Uploader] startNewChunkUpload", _uploading.file)
 	var ignore = function () {
 		// Ignore this file
 		if (_conn)
@@ -242,7 +240,6 @@ function startNewChunkUpload() {
 
 // Open an auxiliary connection and send the encoded chunk
 function uploadChunk(encodedChunk, chunkId) {
-	console.log("[Uploader] uploadChunk", _uploading.file)
 	var conn, nextTime
 	
 	// Get the minimum time when the next chunk upload should start
@@ -283,7 +280,6 @@ function uploadChunk(encodedChunk, chunkId) {
 
 // Finish the upload process
 function endUpload() {
-	console.log("[Uploader] endUpload", _uploading.file)
 	_conn.sendCall(CC_COMMIT_UPLOAD, _uploading.id, function () {
 		// Fine, done!
 		_uploading = null
@@ -351,15 +347,9 @@ function sha1(buffer) {
 
 // Return an encrypted buffer for the given file path
 function encodeFilePath(filePath) {
-	filePath = new Buffer(filePath)
-	
-	// Create the IV based on the path
-	var iv = crypto.createHash("md5")
-	iv.end(filePath)
-	iv = iv.read()
-	
-	// Encode the buffer
-	return encodeBufferWithIV(filePath, iv)
+	var cipher = crypto.createCipheriv("aes128", _config.aesKey, _config.aesIV)
+	cipher.end(filePath)
+	return cipher.read()
 }
 
 // Encrypt the given buffer with the user key and the given initialization vector (16-byte buffer)

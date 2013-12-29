@@ -8,9 +8,11 @@ var path = require("path")
 var MongoClient = require("mongodb").MongoClient
 var config = require("./config.js")
 
-var aesKey = fs.readFileSync("../client/keys").slice(16, 32)
+var keys = fs.readFileSync("../client/keys")
+var aesKey = keys.slice(16, 32)
+var aesIV = keys.slice(32, 48)
 
-var uploadId = "53fc612812309642e7e5f54ef2cec07a"
+var uploadId = "a744cd0aeb154d9b2c8810146574338b"
 var myFolder = "data\\f28d94ed23b2e946e3c6a349c5143151\\"
 
 var ENCRYPTED_CHUNK_SIZE = 16+1024*1024+16 // iv (16B) + chunk (1MiB) + padding (16B)
@@ -21,7 +23,7 @@ MongoClient.connect(config.mongoURL, function (err, db) {
 	db.collection("files").findOne({localName: myFolder+uploadId}, function (err, file) {
 		if (err) throw err
 		if (file)
-			decodeFile(file.localName, decode(file.path.buffer).toString())
+			decodeFile(file.localName, decodeFileName(file.path.buffer))
 		else
 			console.log("File not found")
 		db.close()
@@ -33,6 +35,12 @@ function decode(buffer) {
 	var decoder = crypto.createDecipheriv("aes128", aesKey, iv)
 	decoder.end(buffer.slice(16))
 	return decoder.read()
+}
+
+function decodeFileName(buffer) {
+	var decoder = crypto.createDecipheriv("aes128", aesKey, aesIV)
+	decoder.end(buffer)
+	return decoder.read().toString()
 }
 
 function decodeFile(fileName, realName) {

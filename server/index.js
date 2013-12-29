@@ -101,20 +101,19 @@ MongoClient.connect(config.mongoURL, function (err, db) {
 
 // Try to login the user
 function login(userName, password, answer, conn) {
-	console.log("login", userName, password)
-	_db.collection("users").findOne({userName: userName, password: hashPassword(password)}, function (err, doc) {
+	_db.collection("users").findOne({userName: userName, password: hashPassword(password)}, function (err, user) {
 		throwError(err)
-		if (!doc)
+		if (!user)
 			answer(new aP.Exception(E_LOGIN_ERROR))
 		else {
+			console.log("[server] %s logged in", user.userName)
 			answer()
-			conn.user = doc
+			conn.user = user
 		}
 	})
 }
 
 function startUpload(filePath, mtime, size, answer, user) {
-	console.log("startUpload", filePath, mtime, size)
 	
 	// TODO: check user quota
 	
@@ -128,13 +127,12 @@ function startUpload(filePath, mtime, size, answer, user) {
 	}
 	_db.collection("uploads").insert(data, function (err) {
 		throwError(err)
+		console.log("[server] upload started with id %s", data.localName)
 		answer(data.localName)
 	})
 }
 
 function startChunkUpload(uploadId, hash, answer, user) {
-	console.log("startChunkUpload", uploadId, hash)
-	
 	_db.collection("uploads").findOne({localName: uploadId, user: user.userName}, function (err, upload) {
 		var chunkId
 		throwError(err)
@@ -147,8 +145,6 @@ function startChunkUpload(uploadId, hash, answer, user) {
 }
 
 function commitChunk(chunkId, answer, user) {
-	console.log("commitChunk", chunkId)
-	
 	// Get chunk info
 	var chunk = _chunks[chunkId]
 	if (!chunk || chunk.upload.user != user.userName)
@@ -176,6 +172,8 @@ function commitChunk(chunkId, answer, user) {
 				var query = {user: user.userName, localName: chunk.upload.localName}
 				_db.collection("uploads").update(query, {$inc: {receivedChunks: 1}}, throwError)
 				
+				console.log("[server] chunk received for upload %s", chunk.upload.localName)
+				
 				// Done
 				answer()
 			}
@@ -185,8 +183,6 @@ function commitChunk(chunkId, answer, user) {
 }
 
 function cancelUpload(uploadId, answer, user) {
-	console.log("cancelUpload", uploadId)
-	
 	_db.collection("uploads").findOne({localName: uploadId, user: user.userName}, function (err, upload) {
 		throwError(err)
 		if (upload) {
@@ -195,14 +191,14 @@ function cancelUpload(uploadId, answer, user) {
 			
 			// Remove from the database
 			_db.collection("uploads").remove({localName: uploadId, user: user.userName}, throwError)
+			
+			console.log("[server] upload %s canceled", uploadId)
 		}
 		answer()
 	})
 }
 
 function commitUpload(uploadId, answer, user) {
-	console.log("commitUpload", uploadId)
-	
 	// Check the session in the database
 	_db.collection("uploads").findAndRemove({localName: uploadId, user: user.userName}, [], function (err, upload) {
 		throwError(err)
@@ -232,14 +228,15 @@ function commitUpload(uploadId, answer, user) {
 				localName: user.localFolder+upload.localName
 			}
 			_db.collection("files").insert(file, throwError)
+			console.log("[server] upload %s completed", upload.localName)
 		})
 	})
 }
 
 function removeFile(filePath, answer, user) {
-	console.log("removeFile", filePath)
-	
 	_db.collection("files").update({path: filePath, user: user.userName}, {$set: {old: true}}, throwError)
+	
+	console.log("[server] file removed: %s", filePath.toString("hex"))
 	
 	answer()
 }
