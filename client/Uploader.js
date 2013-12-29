@@ -25,15 +25,15 @@ var E_WRONG_SIZE = aP.registerException(5)
 var E_CORRUPTED_DATA = aP.registerException(6)
 
 var CC_LOGIN = aP.registerClientCall(1, "st", "", [E_LOGIN_ERROR])
-var CC_START_UPLOAD = aP.registerClientCall(2, "(B)uu", "s", [E_NOT_LOGGED_IN, E_OUT_OF_SPACE])
+var CC_START_UPLOAD = aP.registerClientCall(2, "Buu", "s", [E_NOT_LOGGED_IN, E_OUT_OF_SPACE])
 var CC_START_CHUNK_UPLOAD = aP.registerClientCall(3, "sB", "s", [E_NOT_LOGGED_IN, E_INVALID_SESSION])
 var CC_COMMIT_CHUNK = aP.registerClientCall(4, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_CORRUPTED_DATA])
 var CC_CANCEL_UPLOAD = aP.registerClientCall(5, "s", "", [E_NOT_LOGGED_IN])
 var CC_COMMIT_UPLOAD = aP.registerClientCall(6, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_WRONG_SIZE])
-var CC_REMOVE_FILE = aP.registerClientCall(7, "(B)", "", [E_NOT_LOGGED_IN])
+var CC_REMOVE_FILE = aP.registerClientCall(7, "B", "", [E_NOT_LOGGED_IN])
 
 // Start the upload
-// config is an object with the keys "dumpFile", "host", "port", "uploadPort", "userName", "reconnectionTime", "loginKey", "aesKey", "aesIV", "maxUploadSpeed"
+// config is an object with the keys "dumpFile", "host", "port", "uploadPort", "userName", "reconnectionTime", "loginKey", "aesKey", "maxUploadSpeed"
 Uploader.start = function (config) {
 	_config = config
 	fs.readFile(_config.dumpFile, {encoding: "utf8"}, function (err, data) {
@@ -156,7 +156,7 @@ function pickFileToUpload() {
 	
 	if (mode == REMOVE) {
 		// Send the remove command to the server
-		_conn.sendCall(CC_REMOVE_FILE, new aP.Data().addBufferArray(encodeFilePath(file.fullPath)))
+		_conn.sendCall(CC_REMOVE_FILE, new aP.Data().addBuffer(encodeFilePath(file.fullPath)))
 		file.folder.removeItem(file.fileName)
 		saveData()
 		stepUploadSequence()
@@ -186,7 +186,7 @@ function createUploadSession() {
 	var data = new aP.Data
 	
 	// Create the data package (Buffer[] filePath, uint mtime, uint size)
-	data.addBufferArray(encodeFilePath(_uploading.file)).addUint(_uploading.mtime).addUint(_uploading.size)
+	data.addBuffer(encodeFilePath(_uploading.file)).addUint(_uploading.mtime).addUint(_uploading.size)
 	
 	// Send
 	_conn.sendCall(CC_START_UPLOAD, data, function (id) {
@@ -336,9 +336,10 @@ function hashDate(date) {
 
 // Encode the given buffer
 function encodeBuffer(buffer) {
-	var cipher = crypto.createCipheriv("aes128", _config.aesKey, _config.aesIV)
-	cipher.end(buffer)
-	return cipher.read()
+	var iv = new Buffer(16), i
+	for (i=0; i<16; i++)
+		iv[i] = Math.floor(Math.random()*256)
+	return encodeBufferWithIV(buffer, iv)
 }
 
 // Return the SHA1 hash of the given buffer
@@ -348,9 +349,23 @@ function sha1(buffer) {
 	return hash.read()
 }
 
-// Return an array of buffers for the encoded file path
+// Return an encrypted buffer for the given file path
 function encodeFilePath(filePath) {
-	return filePath.split(path.sep).map(function (step) {
-		return encodeBuffer(new Buffer(step))
-	})
+	filePath = new Buffer(filePath)
+	
+	// Create the IV based on the path
+	var iv = crypto.createHash("md5")
+	iv.end(filePath)
+	iv = iv.read()
+	
+	// Encode the buffer
+	return encodeBufferWithIV(filePath, iv)
+}
+
+// Encrypt the given buffer with the user key and the given initialization vector (16-byte buffer)
+function encodeBufferWithIV(buffer, iv) {
+	var cipher = crypto.createCipheriv("aes128", _config.aesKey, iv)
+	cipher.end(buffer)
+	buffer = cipher.read()
+	return Buffer.concat([iv, buffer], iv.length+buffer.length)
 }

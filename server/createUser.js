@@ -32,7 +32,8 @@ MongoClient.connect(config.mongoURL, function (err, db) {
 	if (err)
 		throw err
 	
-	db.collection("users").update({userName: userName}, {userName: userName, password: password, localFolder: localFolder}, {upsert: true}, function (err) {
+	var data = {userName: userName, password: password, localFolder: localFolder}
+	db.collection("users").update({userName: userName}, data, {upsert: true}, function (err) {
 		if (err)
 			throw err
 		db.close()

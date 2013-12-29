@@ -13,7 +13,7 @@
 Throws: LOGIN_ERROR
 The password is stored in the first 16B of "keys" file
 
-## 2: startUpload(Buffer[] filePath, uint mtime, uint size) -> (string uploadId)
+## 2: startUpload(Buffer filePath, uint mtime, uint size) -> (string uploadId)
 Throws: NOT_LOGGED_IN, OUT_OF_SPACE
 Create a new upload session for a given file
 Return the session id that should be used to upload each file chunk
@@ -36,5 +36,5 @@ Throws: NOT_LOGGED_IN
 Throws: NOT_LOGGED_IN, INVALID_SESSION, WRONG_SIZE
 Close the given upload session and commit the submited file
 
-## 7: removeFile(Buffer[] filePath) -> ()
+## 7: removeFile(Buffer filePath) -> ()
 Throws: NOT_LOGGED_IN
