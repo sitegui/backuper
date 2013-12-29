@@ -7,7 +7,6 @@ var MongoClient = require("mongodb").MongoClient
 var config = require("./config.js")
 var fs = require("fs")
 var crypto = require("crypto")
-var path = require("path")
 
 var userName = process.argv[2]
 var password = process.argv[3]
@@ -27,19 +26,19 @@ password = sha1.read()
 
 // Update the database
 MongoClient.connect(config.mongoURL, function (err, db) {
-	var localFolder = "data"+path.sep+getRandomHexString()+path.sep
+	var localName = getRandomHexString()
 	
 	if (err)
 		throw err
 	
-	var data = {userName: userName, password: password, localFolder: localFolder}
+	var data = {userName: userName, password: password, localName: localName}
 	db.collection("users").update({userName: userName}, data, {upsert: true}, function (err) {
 		if (err)
 			throw err
 		db.close()
 		
 		// Create the folder
-		fs.mkdirSync(localFolder)
+		fs.mkdirSync(config.dataFolder+localName)
 		console.log("User created")
 	})
 })

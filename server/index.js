@@ -25,8 +25,6 @@ var CC_COMMIT_UPLOAD = aP.registerClientCall(6, "s", "", [E_NOT_LOGGED_IN, E_INV
 var CC_REMOVE_FILE = aP.registerClientCall(7, "B", "", [E_NOT_LOGGED_IN])
 
 var CHUNK_SIZE = 1*1024*1024 // 1 MiB
-var TEMP_FOLDER = "data"+path.sep+"temp"+path.sep
-var CHUNKS_FOLDER = "data"+path.sep+"temp"+path.sep+"chunks"+path.sep
 
 function throwError(err) {
 	if (err)
@@ -79,7 +77,7 @@ net.createServer(function (conn) {
 				return conn.close()
 			
 			// Dump all bytes after the 32º to a temp file
-			stream = fs.createWriteStream(CHUNKS_FOLDER+id)
+			stream = fs.createWriteStream(config.tempChunksFolder+id)
 			stream.write(buffer.slice(32))
 			conn.pipe(stream)
 		}
@@ -152,7 +150,7 @@ function commitChunk(chunkId, answer, user) {
 	delete _chunks[chunkId]
 	
 	// Check the data
-	fs.readFile(CHUNKS_FOLDER+chunkId, function (err, data) {
+	fs.readFile(config.tempChunksFolder+chunkId, function (err, data) {
 		if (err)
 			return answer(new aP.Exception(E_CORRUPTED_DATA))
 		
@@ -164,7 +162,7 @@ function commitChunk(chunkId, answer, user) {
 			return answer(new aP.Exception(E_CORRUPTED_DATA))
 		
 		// Append to the upload session file
-		fs.appendFile(TEMP_FOLDER+chunk.upload.localName, data, function (err) {
+		fs.appendFile(config.tempFolder+chunk.upload.localName, data, function (err) {
 			if (err)
 				answer(new aP.Exception(E_CORRUPTED_DATA))
 			else {
@@ -178,7 +176,7 @@ function commitChunk(chunkId, answer, user) {
 				answer()
 			}
 		})
-		fs.unlink(CHUNKS_FOLDER+chunkId, throwError)
+		fs.unlink(config.tempChunksFolder+chunkId, throwError)
 	})
 }
 
@@ -187,7 +185,7 @@ function cancelUpload(uploadId, answer, user) {
 		throwError(err)
 		if (upload) {
 			// Remove the file
-			fs.unlink(TEMP_FOLDER+upload.localName, function () {})
+			fs.unlink(config.tempFolder+upload.localName, function () {})
 			
 			// Remove from the database
 			_db.collection("uploads").remove({localName: uploadId, user: user.userName}, throwError)
@@ -209,7 +207,8 @@ function commitUpload(uploadId, answer, user) {
 			return answer(new aP.Exception(E_WRONG_SIZE))
 		
 		// Move the file
-		fs.rename(TEMP_FOLDER+upload.localName, user.localFolder+upload.localName, function (err) {
+		var finalLocalName = config.dataFolder+user.localName+path.sep+upload.localName
+		fs.rename(config.tempFolder+upload.localName, finalLocalName, function (err) {
 			if (err) return answer(new aP.Exception(E_INVALID_SESSION))
 			answer()
 		})
@@ -225,7 +224,7 @@ function commitUpload(uploadId, answer, user) {
 				mtime: upload.mtime,
 				version: 0,
 				old: false,
-				localName: user.localFolder+upload.localName
+				localName: finalLocalName
 			}
 			_db.collection("files").insert(file, throwError)
 			console.log("[server] upload %s completed", upload.localName)

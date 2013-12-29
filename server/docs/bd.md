@@ -2,7 +2,7 @@
 {
 	userName: string, // unique
 	password: Buffer, // SHA1 of the user login key
-	localFolder: string // the local folder name to store all files for this user
+	localName: string // the local name to store all files for this user
 }
 
 # Files
