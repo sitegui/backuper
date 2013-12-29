@@ -17,7 +17,7 @@ var E_WRONG_SIZE = aP.registerException(5)
 var E_CORRUPTED_DATA = aP.registerException(6)
 
 var CC_LOGIN = aP.registerClientCall(1, "st", "", [E_LOGIN_ERROR])
-var CC_START_UPLOAD = aP.registerClientCall(2, "Buu", "s", [E_NOT_LOGGED_IN, E_OUT_OF_SPACE])
+var CC_START_UPLOAD = aP.registerClientCall(2, "BuuB", "s", [E_NOT_LOGGED_IN, E_OUT_OF_SPACE])
 var CC_START_CHUNK_UPLOAD = aP.registerClientCall(3, "sB", "s", [E_NOT_LOGGED_IN, E_INVALID_SESSION])
 var CC_COMMIT_CHUNK = aP.registerClientCall(4, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_CORRUPTED_DATA])
 var CC_CANCEL_UPLOAD = aP.registerClientCall(5, "s", "", [E_NOT_LOGGED_IN])
@@ -46,7 +46,7 @@ net.createServer(function (conn) {
 			if (!conn.user)
 				answer(new aP.Exception(E_NOT_LOGGED_IN))
 			else if (type == CC_START_UPLOAD)
-				startUpload(data[0], data[1], data[2], answer, conn.user)
+				startUpload(data[0], data[1], data[2], data[3], answer, conn.user)
 			else if (type == CC_START_CHUNK_UPLOAD)
 				startChunkUpload(data[0], data[1], answer, conn.user)
 			else if (type == CC_COMMIT_CHUNK)
@@ -111,7 +111,7 @@ function login(userName, password, answer, conn) {
 	})
 }
 
-function startUpload(filePath, mtime, size, answer, user) {
+function startUpload(filePath, mtime, size, originalHash, answer, user) {
 	
 	// TODO: check user quota
 	
@@ -121,7 +121,8 @@ function startUpload(filePath, mtime, size, answer, user) {
 		filePath: filePath,
 		mtime: mtime,
 		size: size,
-		receivedChunks: 0
+		receivedChunks: 0,
+		originalHash: originalHash
 	}
 	_db.collection("uploads").insert(data, function (err) {
 		throwError(err)
@@ -221,7 +222,8 @@ function commitUpload(uploadId, answer, user) {
 				mtime: upload.mtime,
 				version: 0,
 				old: false,
-				localName: finalLocalName
+				localName: finalLocalName,
+				originalHash: upload.originalHash
 			}
 			_db.collection("files").insert(file, throwError)
 			console.log("[server] upload %s completed", upload.localName)

@@ -25,7 +25,7 @@ var E_WRONG_SIZE = aP.registerException(5)
 var E_CORRUPTED_DATA = aP.registerException(6)
 
 var CC_LOGIN = aP.registerClientCall(1, "st", "", [E_LOGIN_ERROR])
-var CC_START_UPLOAD = aP.registerClientCall(2, "Buu", "s", [E_NOT_LOGGED_IN, E_OUT_OF_SPACE])
+var CC_START_UPLOAD = aP.registerClientCall(2, "BuuB", "s", [E_NOT_LOGGED_IN, E_OUT_OF_SPACE])
 var CC_START_CHUNK_UPLOAD = aP.registerClientCall(3, "sB", "s", [E_NOT_LOGGED_IN, E_INVALID_SESSION])
 var CC_COMMIT_CHUNK = aP.registerClientCall(4, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_CORRUPTED_DATA])
 var CC_CANCEL_UPLOAD = aP.registerClientCall(5, "s", "", [E_NOT_LOGGED_IN])
@@ -183,24 +183,44 @@ function pickFileToUpload() {
 // Second step in the upload process
 // Create a upload session in the server
 function createUploadSession() {
-	var data = new aP.Data
-	
-	// Create the data package (Buffer[] filePath, uint mtime, uint size)
-	data.addBuffer(encodeFilePath(_uploading.file)).addUint(_uploading.mtime).addUint(_uploading.size)
-	
-	// Send
-	if (!_conn) return
-	_conn.sendCall(CC_START_UPLOAD, data, function (id) {
-		// Save the session id and continue the process
-		_uploading.id = id
-		console.log("[Uploader] upload session %s for %s", id, _uploading.file)
+	// Get the original hash
+	var hash = crypto.createHash("sha1")
+	var source = fs.createReadStream(_uploading.file)
+	var fine = true
+	source.once("error", function () {
+		// Ignore this file
+		fine = false
+		_uploading = null
 		saveData()
 		stepUploadSequence()
-	}, function (type) {
-		// Error, drop the connection
-		if (type == E_OUT_OF_SPACE)
-			console.log("[Uploader] out of space in the server")
-		_conn.close()
+	})
+	source.pipe(hash)
+	hash.once("finish", function () {
+		var data = new aP.Data
+		
+		if (!fine || !_conn)
+			// Things went wrong in the mean time
+			return
+		
+		// Create the data package (Buffer filePath, uint mtime, uint size, Buffer originalHash)
+		data.addBuffer(encodeFilePath(_uploading.file))
+			.addUint(_uploading.mtime)
+			.addUint(_uploading.size)
+			.addBuffer(hash.read())
+		
+		// Send
+		_conn.sendCall(CC_START_UPLOAD, data, function (id) {
+			// Save the session id and continue the process
+			_uploading.id = id
+			console.log("[Uploader] upload session %s for %s", id, _uploading.file)
+			saveData()
+			stepUploadSequence()
+		}, function (type) {
+			// Error, drop the connection
+			if (type == E_OUT_OF_SPACE)
+				console.log("[Uploader] out of space in the server")
+			_conn.close()
+		})
 	})
 }
 
@@ -297,7 +317,7 @@ function endUpload() {
 		setFileInfo(_uploading.file, UPDATE)
 		_uploading = null
 		stepUploadSequence()
-	})
+	}, 120e3)
 }
 
 // Save the current data into the disk

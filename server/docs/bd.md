@@ -13,7 +13,8 @@
 	mtime: int, // the modification time (utc-hashed)
 	version: int, // the incremental version id (0 is the most recent)
 	old: bool, // indicate whether this file does not exist in the client disk anymore
-	localName: string // the name of file saved in the user folder
+	localName: string, // the name of file saved in the user folder
+	originalHash: Buffer // the sha1 of the decrypted file
 }
 
 # Uploads
@@ -23,5 +24,6 @@
 	filePath: Buffer,
 	mtime: int,
 	size: int,
-	receivedChunks: int // the number of chunks commited for this upload
+	receivedChunks: int, // the number of chunks commited for this upload
+	originalHash: Buffer
 }
