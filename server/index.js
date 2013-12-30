@@ -151,7 +151,10 @@ function commitChunk(chunkId, answer, user) {
 	delete _chunks[chunkId]
 	
 	// Check the data
-	fs.readFile(config.tempChunksFolder+chunkId, function (err, data) {
+	var chunkPath = config.tempChunksFolder+chunkId
+	var uploadTempPath = config.tempFolder+chunk.upload.localName
+	var uploadFinalPath = config.dataFolder+user.localName+path.sep+chunk.upload.localName
+	fs.readFile(chunkPath, function (err, data) {
 		throwError(err)
 		
 		// Check the hash
@@ -162,19 +165,30 @@ function commitChunk(chunkId, answer, user) {
 			return answer(new aP.Exception(E_CORRUPTED_DATA))
 		
 		// Append to the upload session file
-		fs.appendFile(config.tempFolder+chunk.upload.localName, data, function (err) {
-			throwError(err)
-			
-			// Update the number of received chunks in the db
-			var query = {user: user.userName, localName: chunk.upload.localName}
-			_db.collection("uploads").update(query, {$inc: {receivedChunks: 1}}, throwError)
-			
-			console.log("[server] chunk received for upload %s", chunk.upload.localName)
-			
-			// Done
-			answer()
-		})
-		fs.unlink(config.tempChunksFolder+chunkId, throwError)
+		var append = function () {
+			fs.appendFile(uploadTempPath, data, function (err) {
+				throwError(err)
+				
+				// Update the number of received chunks in the db
+				var query = {user: user.userName, localName: chunk.upload.localName}
+				_db.collection("uploads").update(query, {$inc: {receivedChunks: 1}}, throwError)
+				
+				console.log("[server] chunk received for upload %s", chunk.upload.localName)
+				
+				// Done
+				answer()
+			})
+			fs.unlink(chunkPath, throwError)
+		}
+		
+		if (chunk.upload.receivedChunks%100 == 99)
+			// First copy the previous chunks to the final location
+			appendAndRemove(uploadTempPath, uploadFinalPath, function (err) {
+				throwError(err)
+				append()
+			})
+		else
+			append()
 	})
 }
 
@@ -205,8 +219,9 @@ function commitUpload(uploadId, answer, user) {
 			return answer(new aP.Exception(E_WRONG_SIZE))
 		
 		// Move the file
-		var finalLocalName = config.dataFolder+user.localName+path.sep+upload.localName
-		move(config.tempFolder+upload.localName, finalLocalName, function (err) {
+		var uploadTempPath = config.tempFolder+upload.localName
+		var uploadFinalPath = config.dataFolder+user.localName+path.sep+upload.localName
+		appendAndRemove(uploadTempPath, uploadFinalPath, function (err) {
 			throwError(err)
 			answer()
 		})
@@ -222,7 +237,7 @@ function commitUpload(uploadId, answer, user) {
 				mtime: upload.mtime,
 				version: 0,
 				old: false,
-				localName: finalLocalName,
+				localName: upload.localName,
 				originalHash: upload.originalHash
 			}
 			_db.collection("files").insert(file, throwError)
@@ -255,18 +270,19 @@ function getRandomHexString() {
 	return str
 }
 
-// Move a file (posibly across disks)
-// Work similar to fs.rename
-function move(oldPath, newPath, callback) {
-	fs.rename(oldPath, newPath, function (err) {
-		if (err && err.code == "EXDEV") {
-			var source = fs.createReadStream(oldPath)
-			var destination = fs.createWriteStream(newPath)
-			source.pipe(destination)
-			destination.once("finish", function () {
-				fs.unlink(oldPath, callback)
-			})
-		} else
-			callback(err)
+// Append a file to another (posibly across disks)
+// Also remove the source file
+function appendAndRemove(oldPath, newPath, callback) {
+	var source = fs.createReadStream(oldPath)
+	var destination = fs.createWriteStream(newPath, {flags: "a"})
+	var fine = true
+	source.pipe(destination)
+	source.on("error", function (err) {
+		fine = false
+		callback(err)
+	})
+	destination.once("finish", function () {
+		if (fine)
+			fs.unlink(oldPath, callback)
 	})
 }
