@@ -172,10 +172,13 @@ function pickFileToUpload() {
 	
 	if (mode == REMOVE) {
 		// Send the remove command to the server
-		_conn.sendCall(CC_REMOVE_FILE, new aP.Data().addBuffer(encodeFilePath(file.fullPath)))
-		file.folder.removeItem(file.fileName)
-		saveData()
-		stepUploadSequence()
+		_conn.sendCall(CC_REMOVE_FILE, new aP.Data().addBuffer(encodeFilePath(file.fullPath)), function () {
+			file.folder.removeItem(file.fileName)
+			saveData()
+			stepUploadSequence()
+		}, function () {
+			stepUploadSequence()
+		})
 	} else if (mode == UPDATE) {
 		// Get all data from the last file
 		// Don't extract it right away, wait for the stat response
@@ -250,6 +253,14 @@ function startNewChunkUpload() {
 		saveData()
 		stepUploadSequence()
 	}
+	var ignoreForNow = function () {
+		// Put the file back in the queue
+		if (_conn)
+			_conn.sendCall(CC_CANCEL_UPLOAD, _uploading.id)
+		setFileInfo(_uploading.file, UPDATE)
+		_uploading = null
+		stepUploadSequence()
+	}
 	
 	var stats
 	try {
@@ -263,10 +274,10 @@ function startNewChunkUpload() {
 	
 	// Load and encrypt the chunk
 	fs.open(_uploading.file, "r", function (err, fd) {
-		if (err) return ignore()
+		if (err) return ignoreForNow()
 		fs.read(fd, new Buffer(CHUNK_SIZE), 0, CHUNK_SIZE, _uploading.sentChunks*CHUNK_SIZE, function (err, bytesRead, buffer) {
 			fs.close(fd, function () {})
-			if (err) return ignore()
+			if (err) return ignoreForNow()
 			
 			// Encode the buffer and start the chunk session
 			buffer = encodeBuffer(buffer.slice(0, bytesRead))
@@ -274,7 +285,7 @@ function startNewChunkUpload() {
 			if (!_conn) return
 			_conn.sendCall(CC_START_CHUNK_UPLOAD, data, function (chunkId) {
 				uploadChunk(buffer, chunkId)
-			}, ignore)
+			}, ignoreForNow)
 		})
 	})
 }
