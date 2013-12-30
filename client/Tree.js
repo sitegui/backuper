@@ -22,7 +22,7 @@ function Tree(savedData) {
 
 module.exports = Tree
 
-// Return the JSON string representation of the whole tree
+// Return the JSON object representation of the whole tree
 Tree.prototype.toJSON = function () {
 	var itemName, item, obj = {}
 	for (itemName in this.items) {

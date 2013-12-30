@@ -87,6 +87,18 @@ FileWatcher.getFolders = function () {
 	return _folders.slice(0)
 }
 
+// Return the module status (an object with keys "folders", "queue" and "tree")
+FileWatcher.getStatus = function () {
+	var queue = Object.create(null), key
+	for (key in _queue)
+		queue[key] = _queue[key].slice(0)
+	return {
+		folders: _folders.slice(0),
+		queue: queue,
+		tree: _tree.toJSON()
+	}
+}
+
 /*
 Internals
 */

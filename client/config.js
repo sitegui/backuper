@@ -25,5 +25,10 @@ module.exports = {
 		reconnectionTime: 45*1e3,
 		// The limit for the average upload speed (in kbps)
 		maxUploadSpeed: 1000
+	},
+	// UIServer module configs
+	ui: {
+		// port on the localhost to display the user interface
+		port: 3000
 	}
 }

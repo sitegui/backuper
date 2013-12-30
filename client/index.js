@@ -5,6 +5,7 @@ var Uploader = require("./Uploader.js")
 var config = require("./config.js")
 var fs = require("fs")
 var aP = require("async-protocol")
+var ui = require("./UIServer.js")
 
 // Load the keys
 try {
@@ -36,3 +37,6 @@ Uploader.on("start", function () {
 		Uploader.queueFileRemove(file)
 	})
 })
+
+// Set-up the user interface server
+ui.init(FileWatcher, Uploader)

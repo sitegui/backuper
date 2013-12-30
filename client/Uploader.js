@@ -68,6 +68,20 @@ Uploader.queueFileRemove = function (file) {
 	setFileInfo(file, REMOVE)
 }
 
+// Return the module status (an object with keys "uploading" and "tree")
+Uploader.getStatus = function () {
+	var uploading, key
+	if (_uploading) {
+		uploading = Object.create(null)
+		for (key in _uploading)
+			uploading[key] = _uploading[key]
+	}
+	return {
+		uploading: uploading,
+		tree: _tree.toJSON()
+	}
+}
+
 /*
 Internals
 */
@@ -107,6 +121,7 @@ function reconnect() {
 		_conn = new aP(conn, true)
 		_conn.once("close", function () {
 			_conn = null
+			_tree.clear()
 		})
 		login()
 	})
@@ -121,7 +136,8 @@ function login() {
 		stepUploadSequence()
 	}, function () {
 		console.log("[Uploader] login failed")
-		_conn.close()
+		if (_conn)
+			_conn.close()
 	})
 }
 
@@ -156,7 +172,6 @@ function pickFileToUpload() {
 	
 	if (mode == REMOVE) {
 		// Send the remove command to the server
-		if (!_conn) return
 		_conn.sendCall(CC_REMOVE_FILE, new aP.Data().addBuffer(encodeFilePath(file.fullPath)))
 		file.folder.removeItem(file.fileName)
 		saveData()
@@ -219,7 +234,8 @@ function createUploadSession() {
 			// Error, drop the connection
 			if (type == E_OUT_OF_SPACE)
 				console.log("[Uploader] out of space in the server")
-			_conn.close()
+			if (_conn)
+				_conn.close()
 		})
 	})
 }
@@ -317,7 +333,7 @@ function endUpload() {
 		setFileInfo(_uploading.file, UPDATE)
 		_uploading = null
 		stepUploadSequence()
-	}, 120e3)
+	}, 180e3)
 }
 
 // Save the current data into the disk

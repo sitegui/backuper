@@ -37,7 +37,7 @@ Throws: NOT_LOGGED_IN
 Throws: NOT_LOGGED_IN, INVALID_SESSION, WRONG_SIZE
 Close the given upload session and commit the submited file
 This call will only return after the file is completely copied to final destination
-It may take a lot o time, the suggested timeout is 2min
+It may take a lot o time, the suggested timeout is 3min
 
 ## 7: removeFile(Buffer filePath) -> ()
 Throws: NOT_LOGGED_IN
