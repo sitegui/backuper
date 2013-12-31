@@ -52,6 +52,25 @@ Tree.prototype.getItems = function () {
 	return Object.keys(this.items)
 }
 
+// Return an Array of all files that are inside the tree
+Tree.prototype.getAllFiles = function () {
+	var files = []
+	
+	var aux = function (items, prefix) {
+		var itemName, item
+		for (itemName in items) {
+			item = items[itemName]
+			if (item instanceof Tree)
+				aux(item.items, prefix+itemName+path.sep)
+			else
+				files.push(prefix+itemName)
+		}
+	}
+	
+	aux(this.items, "")
+	return files
+}
+
 // Return if the given item is a file child of this tree
 Tree.prototype.isFile = function (item) {
 	return item in this.items && !(this.items[item] instanceof Tree)

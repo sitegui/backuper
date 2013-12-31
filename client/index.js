@@ -1,6 +1,6 @@
 "use strict";
 
-var FileWatcher = require("./FileWatcher.js")
+var Watcher = require("./Watcher.js")
 var Uploader = require("./Uploader.js")
 var config = require("./config.js")
 var fs = require("fs")
@@ -20,23 +20,23 @@ try {
 // Set-up uploader
 Uploader.start(config.uploader)
 Uploader.on("start", function () {
-	// Set-up the filewatcher
-	FileWatcher.start(config.fileWatcher)
-	FileWatcher.on("start", function () {
-		if (FileWatcher.getFolders().length == 0) {
-			FileWatcher.addFolder("C:\\Users\\Guilherme")
-			FileWatcher.addFolder("C:\\Program Files (x86)\\Zend\\Apache2\\htdocs")
+	// Set-up the watcher
+	Watcher.start(config.watcher)
+	Watcher.on("start", function () {
+		if (Watcher.getFolders().length == 0) {
+			Watcher.addFolder("C:\\Users\\Guilherme")
+			Watcher.addFolder("C:\\Program Files (x86)\\Zend\\Apache2\\htdocs")
 		}
 	})
 	
-	// Plug the fileWatcher and uploader together
-	FileWatcher.on("filechange", function (file) {
+	// Plug the watcher and uploader together
+	Watcher.on("filechange", function (file) {
 		Uploader.queueFileUpdate(file)
 	})
-	FileWatcher.on("fileremove", function (file) {
+	Watcher.on("fileremove", function (file) {
 		Uploader.queueFileRemove(file)
 	})
 })
 
 // Set-up the user interface server
-ui.init(FileWatcher, Uploader)
+ui.init(Watcher, Uploader)

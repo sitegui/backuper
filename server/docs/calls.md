@@ -29,6 +29,7 @@ and send the token and the whole chunk then close the socket
 ## 4: commitChunk(string chunkId) -> ()
 Throws: NOT_LOGGED_IN, INVALID_SESSION, CORRUPTED_DATA
 Don't call it more than once for the same chunk upload session
+This call will only return after the file is completely copied to final destination
 
 ## 5: cancelUpload(string uploadId) -> ()
 Throws: NOT_LOGGED_IN
@@ -37,7 +38,6 @@ Throws: NOT_LOGGED_IN
 Throws: NOT_LOGGED_IN, INVALID_SESSION, WRONG_SIZE
 Close the given upload session and commit the submited file
 This call will only return after the file is completely copied to final destination
-It may take a lot o time, the suggested timeout is 3min
 
 ## 7: removeFile(Buffer filePath) -> ()
 Throws: NOT_LOGGED_IN

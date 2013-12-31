@@ -344,7 +344,7 @@ function endUpload() {
 		setFileInfo(_uploading.file, UPDATE)
 		_uploading = null
 		stepUploadSequence()
-	}, 180e3)
+	})
 }
 
 // Save the current data into the disk

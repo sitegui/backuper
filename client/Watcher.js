@@ -1,7 +1,7 @@
 "use strict";
 
-var FileWatcher = new (require("events").EventEmitter)
-module.exports = FileWatcher
+var Watcher = new (require("events").EventEmitter)
+module.exports = Watcher
 
 var path = require("path")
 var fs = require("fs")
@@ -14,14 +14,14 @@ var Tree = require("./Tree.js")
 // start(), right after the watcher has done starting
 // filechange(file), when a file change is detected (file is an absolute path)
 // fileremove(file), when detects a file was deleted (file is an absolute path)
-FileWatcher.start = function (config) {
+Watcher.start = function (config) {
 	_config = config
 	fs.readFile(_config.dumpFile, {encoding: "utf8"}, function (err, data) {
 		if (_started)
-			throw new Error("FileWatcher has already been started")
+			throw new Error("Watcher has already been started")
 		if (err) {
 			// Create a new file watcher profile
-			console.log("[FileWatcher] creating dump file: "+_config.dumpFile)
+			console.log("[Watcher] creating dump file: "+_config.dumpFile)
 			_folders = []
 			_queue = {}
 			_tree = new Tree()
@@ -36,17 +36,17 @@ FileWatcher.start = function (config) {
 				throw new Error("Invalid format")
 		}
 		_started = true
-		FileWatcher.emit("start")
+		Watcher.emit("start")
 		runStep()
 	})
 }
 
 // Add a new folder to be watched
-FileWatcher.addFolder = function (folder) {
+Watcher.addFolder = function (folder) {
 	var i, newFolders = [], newQueue = {}
 	
 	if (!_started)
-		throw new Error("FileWatcher hasn't started")
+		throw new Error("Watcher hasn't started")
 	
 	folder = path.resolve(folder+path.sep)
 	
@@ -66,11 +66,11 @@ FileWatcher.addFolder = function (folder) {
 }
 
 // Remove a folder from the watching list
-FileWatcher.removeFolder = function (folder) {
+Watcher.removeFolder = function (folder) {
 	var pos
 	
 	if (!_started)
-		throw new Error("FileWatcher hasn't started")
+		throw new Error("Watcher hasn't started")
 	
 	folder = path.resolve(folder)
 	pos = _folders.indexOf(folder)
@@ -81,14 +81,14 @@ FileWatcher.removeFolder = function (folder) {
 }
 
 // Return an array with the absolute path of all folders beeing watched now
-FileWatcher.getFolders = function () {
+Watcher.getFolders = function () {
 	if (!_started)
-		throw new Error("FileWatcher hasn't started")
+		throw new Error("Watcher hasn't started")
 	return _folders.slice(0)
 }
 
 // Return the module status (an object with keys "folders", "queue" and "tree")
-FileWatcher.getStatus = function () {
+Watcher.getStatus = function () {
 	var queue = Object.create(null), key
 	for (key in _queue)
 		queue[key] = _queue[key].slice(0)
@@ -117,7 +117,7 @@ var saveData = function () {
 	data.tree = _tree
 	fs.writeFile(_config.dumpFile, JSON.stringify(data), function (err) {
 		if (err)
-			console.error("[FileWatcher] Error while trying to save data into "+_config.dumpFile)
+			console.error("[Watcher] Error while trying to save data into "+_config.dumpFile)
 	})
 }
 
@@ -141,7 +141,7 @@ var runStep = function () {
 		// Restart all queues
 		for (root in _queue)
 			_queue[root] = [root]
-		console.log("[FileWatcher] end of cicle")
+		console.log("[Watcher] end of cicle")
 	}
 	setTimeout(runStep, _config.timeBetweenSteps)
 }
@@ -165,7 +165,11 @@ var readFolderFromQueue = function (queue) {
 			}).forEach(function (item) {
 				// Update the tree and warn the uploader
 				if (folderTree.isFile(item))
-					FileWatcher.emit("fileremove", path.join(folder, item))
+					Watcher.emit("fileremove", path.join(folder, item))
+				else
+					item.getAllFiles().forEach(function (file) {
+						Watcher.emit("fileremove", path.join(folder, item, file))
+					})
 				folderTree.removeItem(item)
 			})
 			
@@ -181,7 +185,7 @@ var readFolderFromQueue = function (queue) {
 						if (folderTree.getFileInfo(item) != hash) {
 							// Update the data and execute the callback
 							folderTree.setFileInfo(item, hash)
-							FileWatcher.emit("filechange", itemPath)
+							Watcher.emit("filechange", itemPath)
 						}
 					} else if (stats.isDirectory()) {
 						// Add to the original queue

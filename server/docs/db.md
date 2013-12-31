@@ -25,5 +25,6 @@
 	mtime: int,
 	size: int,
 	receivedChunks: int, // the number of chunks commited for this upload
-	originalHash: Buffer
+	originalHash: Buffer,
+	timestamp: int // the Date.now() of creation of this session
 }

@@ -122,7 +122,8 @@ function startUpload(filePath, mtime, size, originalHash, answer, user) {
 		mtime: mtime,
 		size: size,
 		receivedChunks: 0,
-		originalHash: originalHash
+		originalHash: originalHash,
+		timestamp: Date.now()
 	}
 	_db.collection("uploads").insert(data, function (err) {
 		throwError(err)

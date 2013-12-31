@@ -2,10 +2,10 @@
 
 // Store all the configurations for the backuper
 module.exports = {
-	// FileWatcher module configs
-	fileWatcher: {
+	// watcher module configs
+	watcher: {
 		// File used to save the current state
-		dumpFile: "fileWatcher.dump",
+		dumpFile: "watcher.dump",
 		// Number of folders to open at each step
 		foldersPerStep: 10,
 		// In ms
