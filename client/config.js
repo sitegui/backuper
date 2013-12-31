@@ -29,6 +29,8 @@ module.exports = {
 	// UIServer module configs
 	ui: {
 		// port on the localhost to display the user interface
-		port: 3000
+		port: 3000,
+		// the port to listen to 
+		asyncPort: 3001
 	}
 }

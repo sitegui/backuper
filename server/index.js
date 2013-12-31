@@ -127,8 +127,16 @@ function startUpload(filePath, mtime, size, originalHash, answer, user) {
 	}
 	_db.collection("uploads").insert(data, function (err) {
 		throwError(err)
-		console.log("[server] upload started with id %s", data.localName)
-		answer(data.localName)
+		
+		// Create an empty file
+		fs.open(config.tempFolder+data.localName, "wx", function (err, fd) {
+			throwError(err)
+			fs.close(fd, function (err) {
+				throwError(err)
+				console.log("[server] upload started with id %s", data.localName)
+				answer(data.localName)
+			})
+		})
 	})
 }
 

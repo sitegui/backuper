@@ -34,6 +34,7 @@ var CC_REMOVE_FILE = aP.registerClientCall(7, "B", "", [E_NOT_LOGGED_IN])
 
 // Start the upload
 // config is an object with the keys "dumpFile", "host", "port", "uploadPort", "userName", "reconnectionTime", "loginKey", "aesKey", "aesIV", "maxUploadSpeed"
+// This object emits update() whenever the internal status change (check getStatus())
 Uploader.start = function (config) {
 	_config = config
 	fs.readFile(_config.dumpFile, {encoding: "utf8"}, function (err, data) {
@@ -363,6 +364,7 @@ var saveData = (function () {
 			console.log("[Uploader] Error while trying to save data into "+_config.dumpFile)
 		}
 		interval = null
+		Uploader.emit("update")
 	}
 	
 	return function () {

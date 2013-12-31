@@ -10,7 +10,7 @@ var Tree = require("./Tree.js")
 // Start the watcher
 // It'll awake from the saved state (or start from scratch if it doesn't exist)
 // config is an object with the keys "dumpFile", "foldersPerStep", "timeBetweenSteps", "ignore"
-// This object emits two events:
+// This object emits three events:
 // start(), right after the watcher has done starting
 // filechange(file), when a file change is detected (file is an absolute path)
 // fileremove(file), when detects a file was deleted (file is an absolute path)
@@ -25,6 +25,7 @@ Watcher.start = function (config) {
 			_folders = []
 			_queue = {}
 			_tree = new Tree()
+			_lastCicleTime = 0
 		} else {
 			// Get the data from the saved format
 			data = JSON.parse(data)
@@ -32,6 +33,7 @@ Watcher.start = function (config) {
 				_folders = data.folders
 				_queue = data.queue
 				_tree = new Tree(data.tree)
+				_lastCicleTime = data.lastCicleTime
 			} else
 				throw new Error("Invalid format")
 		}
@@ -87,7 +89,7 @@ Watcher.getFolders = function () {
 	return _folders.slice(0)
 }
 
-// Return the module status (an object with keys "folders", "queue" and "tree")
+// Return the module status (an object with keys "folders", "queue", "lastCicleTime" and "tree")
 Watcher.getStatus = function () {
 	var queue = Object.create(null), key
 	for (key in _queue)
@@ -95,13 +97,15 @@ Watcher.getStatus = function () {
 	return {
 		folders: _folders.slice(0),
 		queue: queue,
-		tree: _tree.toJSON()
+		tree: _tree.toJSON(),
+		lastCicleTime: _lastCicleTime
 	}
 }
 
 /*
 Internals
 */
+var _lastCicleTime // the timestamp of the last time the cicle ended
 var _folders // array of absolute paths
 var _queue // object, where each key is an element of _folders and each values is an array of absolute paths inside the key folder
 var _config // the config object (with keys "dumpFile", "foldersPerStep", "timeBetweenSteps")
@@ -115,6 +119,7 @@ var saveData = function () {
 	data.folders = _folders
 	data.queue = _queue
 	data.tree = _tree
+	data.lastCicleTime = _lastCicleTime
 	fs.writeFile(_config.dumpFile, JSON.stringify(data), function (err) {
 		if (err)
 			console.error("[Watcher] Error while trying to save data into "+_config.dumpFile)
@@ -142,6 +147,7 @@ var runStep = function () {
 		for (root in _queue)
 			_queue[root] = [root]
 		console.log("[Watcher] end of cicle")
+		_lastCicleTime = Date.now()
 	}
 	setTimeout(runStep, _config.timeBetweenSteps)
 }
@@ -167,7 +173,7 @@ var readFolderFromQueue = function (queue) {
 				if (folderTree.isFile(item))
 					Watcher.emit("fileremove", path.join(folder, item))
 				else
-					item.getAllFiles().forEach(function (file) {
+					folderTree.getFolder(item).getAllFiles().forEach(function (file) {
 						Watcher.emit("fileremove", path.join(folder, item, file))
 					})
 				folderTree.removeItem(item)
