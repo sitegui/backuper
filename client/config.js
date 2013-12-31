@@ -30,7 +30,7 @@ module.exports = {
 	ui: {
 		// port on the localhost to display the user interface
 		port: 3000,
-		// the port to listen to 
-		asyncPort: 3001
+		// the port to listen to websocket connections
+		wsPort: 3001
 	}
 }
