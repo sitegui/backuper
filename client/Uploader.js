@@ -31,6 +31,7 @@ var CC_COMMIT_CHUNK = aP.registerClientCall(4, "s", "", [E_NOT_LOGGED_IN, E_INVA
 var CC_CANCEL_UPLOAD = aP.registerClientCall(5, "s", "", [E_NOT_LOGGED_IN])
 var CC_COMMIT_UPLOAD = aP.registerClientCall(6, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_WRONG_SIZE])
 var CC_REMOVE_FILE = aP.registerClientCall(7, "B", "", [E_NOT_LOGGED_IN])
+var CC_GET_FILES_INFO = aP.registerClientCall(8, "", "(B(uus))", [E_NOT_LOGGED_IN])
 
 // Start the upload
 // config is an object with the keys "dumpFile", "host", "port", "uploadPort", "userName", "reconnectionTime", "loginKey", "aesKey", "aesIV", "maxUploadSpeed"
@@ -56,8 +57,8 @@ Uploader.start = function (config) {
 		}
 		_started = true
 		Uploader.emit("start")
-		reconnect()
-		setInterval(reconnect, _config.reconnectionTime)
+		kickIn()
+		setInterval(kickIn, _config.reconnectionTime)
 	})
 }
 
@@ -81,6 +82,40 @@ Uploader.getStatus = function () {
 		uploading: uploading,
 		tree: _tree.toJSON()
 	}
+}
+
+// Return the tree of files in the server
+// This is an expensive operation!
+// callback(tree) will be called with the result (or null in case of error)
+Uploader.getServerTree = function (callback) {
+	connect(function (conn) {
+		if (!conn)
+			return callback(null)
+		conn.sendCall(CC_GET_FILES_INFO, null, function (files) {
+			conn.close()
+			
+			// Decrypt all file names
+			var tree = new Tree
+			files.forEach(function (file) {
+				// Decrypt
+				var decipher = crypto.createDecipheriv("aes128", _config.aesKey, _config.aesIV)
+				decipher.end(file[0])
+				var filePath = decipher.read().toString()
+				
+				// Store in the tree
+				var folderPath = path.dirname(filePath)
+				var folder = tree.getFolder(folderPath)
+				folder.setFileInfo(path.basename(filePath), file[1].map(function (each) {
+					return {size: each[0], mtime: each[1], id: each[2]}
+				}))
+			})
+			
+			callback(tree)
+		}, function () {
+			conn.close()
+			callback(null)
+		})
+	})
 }
 
 /*
@@ -107,38 +142,46 @@ function setFileInfo(file, info) {
 	saveData()
 }
 
-// Try to connect with the backuper server
-// Ignore if already connected and logged in
-function reconnect() {
+// Start the whole upload process
+// Store the connection in the global var _conn
+function kickIn() {
 	if (_conn)
 		// Already connected
 		return
 	if (!_uploading && _tree.isEmpty())
 		// There is no work to do
 		return
-	var conn = net.connect({port: _config.port, host: _config.host})
-	conn.on("error", function () {})
-	conn.once("connect", function () {
-		_conn = new aP(conn, true)
-		_conn.once("close", function () {
-			_conn = null
-			_tree.clear()
-		})
-		login()
+	connect(function (conn) {
+		if (conn) {
+			_conn = conn
+			_conn.once("close", function () {
+				_conn = null
+				_tree.clear()
+			})
+			stepUploadSequence()
+		}
 	})
 }
 
-// Try to login
-// In case of sucess, start the uploading sequence
-function login() {
-	var data = new aP.Data().addString(_config.userName).addToken(_config.loginKey)
-	if (!_conn) return
-	_conn.sendCall(CC_LOGIN, data, function () {
-		stepUploadSequence()
-	}, function () {
-		console.log("[Uploader] login failed")
-		if (_conn)
-			_conn.close()
+// Try to connect with the backuper server
+// callback(conn) isn't optional and will be called after the login
+// If something went wrong, conn will be null
+function connect(callback) {
+	var conn = net.connect({port: _config.port, host: _config.host})
+	conn.once("error", function () {
+		callback(null)
+	})
+	conn.once("connect", function () {
+		conn.removeAllListeners()
+		conn = new aP(conn, true)
+		var data = new aP.Data().addString(_config.userName).addToken(_config.loginKey)
+		conn.sendCall(CC_LOGIN, data, function () {
+			callback(conn)
+		}, function () {
+			console.log("[Uploader] login failed")
+			callback(null)
+			conn.close()
+		})
 	})
 }
 

@@ -24,6 +24,7 @@ var _conns = [] // current ws connections
 // Set-up protocol calls
 var CC_GET_UPLOADER_STATUS = aP.registerClientCall(100, "", "s")
 var CC_GET_WATCHER_STATUS = aP.registerClientCall(101, "", "s")
+var CC_GET_SERVER_TREE = aP.registerClientCall(102, "", "s")
 var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "s")
 
 // Start the server
@@ -64,6 +65,8 @@ exports.init = function (Watcher, Uploader) {
 				getUploaderStatus(answer)
 			else if (type == CC_GET_WATCHER_STATUS)
 				getWatcherStatus(answer)
+			else if (type == CC_GET_SERVER_TREE)
+				getServerTree(answer)
 		})
 		
 		_conns.push(conn)
@@ -102,4 +105,13 @@ function getUploaderStatus(answer) {
 
 function getWatcherStatus(answer) {
 	answer(JSON.stringify(_watcher.getStatus()))
+}
+
+function getServerTree(answer) {
+	_uploader.getServerTree(function (tree) {
+		if (tree)
+			answer(JSON.stringify(tree))
+		else
+			answer("")
+	})
 }

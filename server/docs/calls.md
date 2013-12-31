@@ -41,3 +41,7 @@ This call will only return after the file is completely copied to final destinat
 
 ## 7: removeFile(Buffer filePath) -> ()
 Throws: NOT_LOGGED_IN
+
+## 8: getFilesInfo() -> ((Buffer path, (uint size, uint mtime, string id)[] versions)[] files)
+Throws: NOT_LOGGED_IN
+Return the info about all files for the current user

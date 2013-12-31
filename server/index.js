@@ -23,6 +23,7 @@ var CC_COMMIT_CHUNK = aP.registerClientCall(4, "s", "", [E_NOT_LOGGED_IN, E_INVA
 var CC_CANCEL_UPLOAD = aP.registerClientCall(5, "s", "", [E_NOT_LOGGED_IN])
 var CC_COMMIT_UPLOAD = aP.registerClientCall(6, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_WRONG_SIZE])
 var CC_REMOVE_FILE = aP.registerClientCall(7, "B", "", [E_NOT_LOGGED_IN])
+var CC_GET_FILES_INFO = aP.registerClientCall(8, "", "(B(uus))", [E_NOT_LOGGED_IN])
 
 var CHUNK_SIZE = 1*1024*1024 // 1 MiB
 
@@ -57,6 +58,8 @@ net.createServer(function (conn) {
 				commitUpload(data, answer, conn.user)
 			else if (type == CC_REMOVE_FILE)
 				removeFile(data, answer, conn.user)
+			else if (type == CC_GET_FILES_INFO)
+				getFilesInfo(answer, conn.user)
 		}
 	})
 }).listen(config.port)
@@ -107,6 +110,7 @@ function login(userName, password, answer, conn) {
 			console.log("[server] %s logged in", user.userName)
 			answer()
 			conn.user = user
+			getFilesInfo(null, user)
 		}
 	})
 }
@@ -261,6 +265,38 @@ function removeFile(filePath, answer, user) {
 	console.log("[server] file removed: %s", filePath.toString("hex"))
 	
 	answer()
+}
+
+// ((Buffer path, (uint size, uint mtime, string id)[] versions)[] files)
+function getFilesInfo(answer, user) {
+	var query = {user: user.userName}
+	var fields = {size: "$size", mtime: "$mtime", id: "$localName"}
+	_db.collection("files").aggregate([
+		{$match: query},
+		{$group: {_id: "$path", versions: {$push: fields}}}
+	], function (err, files) {
+		throwError(err)
+		
+		// Convert to the format (B(uus))
+		var array = new aP.DataArray
+		files.forEach(function (file) {
+			var data = new aP.Data
+			data.appendBuffer(file._id.buffer)
+			
+			var versions = new aP.DataArray
+			file.versions.forEach(function (version) {
+				var data = new aP.Data
+				data.appendUint(version.size)
+				data.appendUint(version.mtime)
+				data.appendString(version.id)
+				versions.appendData(data)
+			})
+			data.appendDataArray(versions)
+			array.appendData(data)
+		})
+		
+		answer(array)
+	})
 }
 
 // Return the (Buffer) sha1 salted hash of the given (aP.Token) password

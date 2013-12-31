@@ -4,6 +4,7 @@
 
 var CC_GET_UPLOADER_STATUS = aP.registerClientCall(100, "", "s")
 var CC_GET_WATCHER_STATUS = aP.registerClientCall(101, "", "s")
+var CC_GET_SERVER_TREE = aP.registerClientCall(102, "", "s")
 var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "s")
 
 var _conn = new aP("ws://localhost:"+_port)
