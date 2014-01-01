@@ -110,7 +110,6 @@ function login(userName, password, answer, conn) {
 			console.log("[server] %s logged in", user.userName)
 			answer()
 			conn.user = user
-			getFilesInfo(null, user)
 		}
 	})
 }
@@ -278,21 +277,21 @@ function getFilesInfo(answer, user) {
 		throwError(err)
 		
 		// Convert to the format (B(uus))
-		var array = new aP.DataArray
+		var array = new aP.DataArray("B(uus)")
 		files.forEach(function (file) {
 			var data = new aP.Data
-			data.appendBuffer(file._id.buffer)
+			data.addBuffer(file._id.buffer)
 			
-			var versions = new aP.DataArray
+			var versions = new aP.DataArray("uus")
 			file.versions.forEach(function (version) {
 				var data = new aP.Data
-				data.appendUint(version.size)
-				data.appendUint(version.mtime)
-				data.appendString(version.id)
-				versions.appendData(data)
+				data.addUint(version.size)
+				data.addUint(version.mtime)
+				data.addString(version.id)
+				versions.addData(data)
 			})
-			data.appendDataArray(versions)
-			array.appendData(data)
+			data.addDataArray(versions)
+			array.addData(data)
 		})
 		
 		answer(array)

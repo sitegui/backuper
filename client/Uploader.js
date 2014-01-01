@@ -70,17 +70,16 @@ Uploader.queueFileRemove = function (file) {
 	setFileInfo(file, REMOVE)
 }
 
-// Return the module status (an object with keys "uploading" and "tree")
+// Return {file: string, mtime: uint, size; uint, sentChunks: uint}
+// If idle, file will be an empty string
 Uploader.getStatus = function () {
-	var uploading, key
-	if (_uploading) {
-		uploading = Object.create(null)
-		for (key in _uploading)
-			uploading[key] = _uploading[key]
-	}
+	if (!_uploading)
+		return {file: "", mtime: 0, size: 0, sentChunks: 0}
 	return {
-		uploading: uploading,
-		tree: _tree.toJSON()
+		file: _uploading.file,
+		mtime: _uploading.mtime,
+		size: _uploading.size,
+		sentChunks: _uploading.sentChunks
 	}
 }
 
@@ -110,12 +109,19 @@ Uploader.getServerTree = function (callback) {
 				}))
 			})
 			
-			callback(tree)
+			callback(tree.toJSON())
 		}, function () {
 			conn.close()
 			callback(null)
 		})
 	})
+}
+
+// Return an copy of the internal tree
+// Each leaf is an int to indicate the kind of operation is scheduled for the file
+// 0 means UPDATE, 1 REMOVE
+Uploader.getTree = function () {
+	return _tree.toJSON()
 }
 
 /*

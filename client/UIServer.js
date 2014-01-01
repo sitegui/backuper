@@ -23,9 +23,8 @@ var _conns = [] // current ws connections
 
 // Set-up protocol calls
 var CC_GET_UPLOADER_STATUS = aP.registerClientCall(100, "", "s")
-var CC_GET_WATCHER_STATUS = aP.registerClientCall(101, "", "s")
-var CC_GET_SERVER_TREE = aP.registerClientCall(102, "", "s")
-var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "s")
+var CC_GET_TREE = aP.registerClientCall(101, "", "s")
+var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "suuu")
 
 // Start the server
 // Watcher and Uploader should be the other two loaded modules
@@ -63,10 +62,8 @@ exports.init = function (Watcher, Uploader) {
 		conn.on("call", function (type, data, answer) {
 			if (type == CC_GET_UPLOADER_STATUS)
 				getUploaderStatus(answer)
-			else if (type == CC_GET_WATCHER_STATUS)
-				getWatcherStatus(answer)
-			else if (type == CC_GET_SERVER_TREE)
-				getServerTree(answer)
+			else if (type == CC_GET_TREE)
+				getTree(answer)
 		})
 		
 		_conns.push(conn)
@@ -91,9 +88,14 @@ exports.init = function (Watcher, Uploader) {
 	// Set the listener for Uploader activity
 	_uploader.on("update", function () {
 		if (_conns.length) {
-			var status = new aP.Data().addString(JSON.stringify(_uploader.getStatus()))
+			var status = _uploader.getStatus()
+			var data = new aP.Data
+			data.addString(status.file)
+			data.addUint(status.mtime)
+			data.addUint(status.size)
+			data.addUint(status.sentChunks)
 			_conns.forEach(function (conn) {
-				conn.sendCall(SC_UPLOADER_PROGRESS, status)
+				conn.sendCall(SC_UPLOADER_PROGRESS, data)
 			})
 		}
 	})
@@ -103,15 +105,60 @@ function getUploaderStatus(answer) {
 	answer(JSON.stringify(_uploader.getStatus()))
 }
 
-function getWatcherStatus(answer) {
-	answer(JSON.stringify(_watcher.getStatus()))
+function getTree(answer) {
+	// First fetch the server tree
+	_uploader.getServerTree(function (serverTree) {
+		// Fetch other trees
+		var watcherTree = _watcher.getTree()
+		var uploaderTree = _uploader.getTree()
+		
+		// Mix and return
+		answer(JSON.stringify(mixTree(serverTree, watcherTree, uploaderTree)))
+	})
 }
 
-function getServerTree(answer) {
-	_uploader.getServerTree(function (tree) {
-		if (tree)
-			answer(JSON.stringify(tree))
-		else
-			answer("")
+// Join the tree from the given sources
+// Send undefined to ignore any of them
+// server===null means server did not answered
+// server===undefined means the server doesn't have this folder
+function mixTree(server, watcher, uploader) {
+	var tree = {
+		items: Object.create(null),
+		watcher: Boolean(watcher),
+		uploader: Boolean(uploader)
+	}
+	
+	// Get sub-items names
+	var serverItems = server ? Object.keys(server) : []
+	var watcherItems = watcher ? Object.keys(watcher) : []
+	var uploaderItems = uploader ? Object.keys(uploader) : []
+	
+	// Get the union
+	var items = serverItems.slice(0)
+	var addItemToSet = function (item) {
+		if (items.indexOf(item) == -1)
+			items.push(item)
+	}
+	watcherItems.forEach(addItemToSet)
+	uploaderItems.forEach(addItemToSet)
+	
+	// Add each sub-item
+	items.forEach(function (item) {
+		if (item[0] == "/") {
+			// A folder
+			var serverItem = server===null ? null : (server ? server[item] : undefined)
+			var watcherItem = watcher ? watcher[item] : undefined
+			var uploaderItem = uploader ? uploader[item] : undefined
+			tree.items[item] = mixTree(serverItem, watcherItem, uploaderItem)
+		} else {
+			// A file
+			tree.items[item] = {
+				watcher: watcher ? item in watcher : false,
+				uploader: uploader ? item in uploader : false,
+				server: server===null ? null : (item in server ? server[item] : [])
+			}
+		}
 	})
+	
+	return tree
 }

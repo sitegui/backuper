@@ -89,17 +89,10 @@ Watcher.getFolders = function () {
 	return _folders.slice(0)
 }
 
-// Return the module status (an object with keys "folders", "queue", "lastCicleTime" and "tree")
-Watcher.getStatus = function () {
-	var queue = Object.create(null), key
-	for (key in _queue)
-		queue[key] = _queue[key].slice(0)
-	return {
-		folders: _folders.slice(0),
-		queue: queue,
-		tree: _tree.toJSON(),
-		lastCicleTime: _lastCicleTime
-	}
+// Return an copy of the internal tree
+// Each leaf is an int to indicate the mtime of the watched file
+Watcher.getTree = function () {
+	return _tree.toJSON()
 }
 
 /*
