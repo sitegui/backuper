@@ -31,8 +31,13 @@ MongoClient.connect(config.mongoURL, function (err, db) {
 	if (err)
 		throw err
 	
-	var data = {userName: userName, password: password, localName: localName}
-	db.collection("users").update({userName: userName}, data, {upsert: true}, function (err) {
+	var data = {
+		name: userName,
+		password: password,
+		localName: localName,
+		quota: 1024*1024*1024 // 1 GiB
+	}
+	db.collection("users").update({name: userName}, data, {upsert: true}, function (err) {
 		if (err)
 			throw err
 		db.close()

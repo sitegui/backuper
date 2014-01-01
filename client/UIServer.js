@@ -155,7 +155,7 @@ function mixTree(server, watcher, uploader) {
 			tree.items[item] = {
 				watcher: watcher ? item in watcher : false,
 				uploader: uploader ? item in uploader : false,
-				server: server===null ? null : (item in server ? server[item] : [])
+				server: server===null ? null : (server && item in server ? server[item] : [])
 			}
 		}
 	})

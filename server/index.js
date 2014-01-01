@@ -97,17 +97,17 @@ MongoClient.connect(config.mongoURL, function (err, db) {
 	_db = db
 	
 	// Set-up the database
-	db.collection("users").ensureIndex({userName: 1}, {unique: true}, throwError)
+	db.collection("users").ensureIndex({name: 1}, {unique: true}, throwError)
 })
 
 // Try to login the user
 function login(userName, password, answer, conn) {
-	_db.collection("users").findOne({userName: userName, password: hashPassword(password)}, function (err, user) {
+	_db.collection("users").findOne({name: userName, password: hashPassword(password)}, function (err, user) {
 		throwError(err)
 		if (!user)
 			answer(new aP.Exception(E_LOGIN_ERROR))
 		else {
-			console.log("[server] %s logged in", user.userName)
+			console.log("[server] %s logged in", user.name)
 			answer()
 			conn.user = user
 		}
@@ -115,36 +115,94 @@ function login(userName, password, answer, conn) {
 }
 
 function startUpload(filePath, mtime, size, originalHash, answer, user) {
-	
-	// TODO: check user quota
-	
-	var data = {
-		localName: getRandomHexString(),
-		user: user.userName,
-		filePath: filePath,
-		mtime: mtime,
-		size: size,
-		receivedChunks: 0,
-		originalHash: originalHash,
-		timestamp: Date.now()
-	}
-	_db.collection("uploads").insert(data, function (err) {
-		throwError(err)
+	freeSpace(size, user, function (sucess) {
+		if (!sucess)
+			return answer(new aP.Exception(E_OUT_OF_SPACE))
 		
-		// Create an empty file
-		fs.open(config.tempFolder+data.localName, "wx", function (err, fd) {
+		var data = {
+			localName: getRandomHexString(),
+			user: user.name,
+			filePath: filePath,
+			mtime: mtime,
+			size: size,
+			receivedChunks: 0,
+			originalHash: originalHash,
+			timestamp: Date.now()
+		}
+		_db.collection("uploads").insert(data, function (err) {
 			throwError(err)
-			fs.close(fd, function (err) {
+			
+			// Create an empty file
+			fs.open(config.tempFolder+data.localName, "wx", function (err, fd) {
 				throwError(err)
-				console.log("[server] upload started with id %s", data.localName)
-				answer(data.localName)
+				fs.close(fd, function (err) {
+					throwError(err)
+					console.log("[server] upload started with id %s", data.localName)
+					answer(data.localName)
+				})
 			})
 		})
 	})
 }
 
+// Try to allocate the amount of space needed
+// Delete old files if necessary
+// callback(bool sucess) is called at the end
+function freeSpace(size, user, callback) {
+	var quota = user.quota
+	
+	// Get the current number of used space
+	var query = [
+		{$match: {user: user.name}},
+		{$group: {_id: null, usedSpace: {$sum: "$size"}}}
+	]
+	_db.collection("files").aggregate(query, function (err, result) {
+		throwError(err)
+		var used = result[0].usedSpace
+		var needToBeFreed = used+size-quota
+		var query, fields, sort
+		console.log("[needToBeFreed]", needToBeFreed)
+		if (needToBeFreed < 0)
+			// Ok, there is space for more
+			return callback(true)
+		
+		// Find files to delete (biggest first)
+		query = {user: user.name, old: true}
+		fields = {size: true, localName: true}
+		sort = [["size", -1]]
+		_db.collection("files").find(query, fields).sort(sort, function (err, files) {
+			var i, willBeDeleted = []
+			throwError(err)
+			
+			for (i=0; i<files.length; i++) {
+				needToBeFreed -= files[i].size
+				willBeDeleted.push(files[i].localName)
+				if (needToBeFreed < 0)
+					break
+			}
+			
+			if (needToBeFreed > 0)
+				// It was not enough...
+				return callback(false)
+			
+			console.log("[willBeDeleted]", willBeDeleted)
+			
+			// Exclude files from db
+			var query = {localName: {$in: willBeDeleted}}
+			_db.collection("files").remove(query, throwError)
+			
+			// Exclude from the disk
+			willBeDeleted.forEach(function (file) {
+				fs.unlink(config.dataFolder+user.localName+path.sep+file, function () {})
+			})
+			
+			callback(true)
+		})
+	})
+}
+
 function startChunkUpload(uploadId, hash, answer, user) {
-	_db.collection("uploads").findOne({localName: uploadId, user: user.userName}, function (err, upload) {
+	_db.collection("uploads").findOne({localName: uploadId, user: user.name}, function (err, upload) {
 		var chunkId
 		throwError(err)
 		if (!upload)
@@ -158,7 +216,7 @@ function startChunkUpload(uploadId, hash, answer, user) {
 function commitChunk(chunkId, answer, user) {
 	// Get chunk info
 	var chunk = _chunks[chunkId]
-	if (!chunk || chunk.upload.user != user.userName)
+	if (!chunk || chunk.upload.user != user.name)
 		return answer(new aP.Exception(E_INVALID_SESSION))
 	delete _chunks[chunkId]
 	
@@ -182,7 +240,7 @@ function commitChunk(chunkId, answer, user) {
 				throwError(err)
 				
 				// Update the number of received chunks in the db
-				var query = {user: user.userName, localName: chunk.upload.localName}
+				var query = {user: user.name, localName: chunk.upload.localName}
 				_db.collection("uploads").update(query, {$inc: {receivedChunks: 1}}, throwError)
 				
 				console.log("[server] chunk received for upload %s", chunk.upload.localName)
@@ -205,14 +263,14 @@ function commitChunk(chunkId, answer, user) {
 }
 
 function cancelUpload(uploadId, answer, user) {
-	_db.collection("uploads").findOne({localName: uploadId, user: user.userName}, function (err, upload) {
+	_db.collection("uploads").findOne({localName: uploadId, user: user.name}, function (err, upload) {
 		throwError(err)
 		if (upload) {
 			// Remove the file
 			fs.unlink(config.tempFolder+upload.localName, function () {})
 			
 			// Remove from the database
-			_db.collection("uploads").remove({localName: uploadId, user: user.userName}, throwError)
+			_db.collection("uploads").remove({localName: uploadId, user: user.name}, throwError)
 			
 			console.log("[server] upload %s canceled", uploadId)
 		}
@@ -222,7 +280,7 @@ function cancelUpload(uploadId, answer, user) {
 
 function commitUpload(uploadId, answer, user) {
 	// Check the session in the database
-	_db.collection("uploads").findAndRemove({localName: uploadId, user: user.userName}, [], function (err, upload) {
+	_db.collection("uploads").findAndRemove({localName: uploadId, user: user.name}, [], function (err, upload) {
 		throwError(err)
 		if (!upload) return answer(new aP.Exception(E_INVALID_SESSION))
 		
@@ -239,11 +297,11 @@ function commitUpload(uploadId, answer, user) {
 		})
 		
 		// Save in the database
-		var file = {path: upload.filePath, user: user.userName}
+		var file = {path: upload.filePath, user: user.name}
 		_db.collection("files").update(file, {$inc: {version: 1}, $set: {old: true}}, {multi: true}, function (err) {
 			throwError(err)
 			var file = {
-				user: user.userName,
+				user: user.name,
 				path: upload.filePath,
 				size: upload.size,
 				mtime: upload.mtime,
@@ -259,7 +317,7 @@ function commitUpload(uploadId, answer, user) {
 }
 
 function removeFile(filePath, answer, user) {
-	_db.collection("files").update({path: filePath, user: user.userName}, {$set: {old: true}}, throwError)
+	_db.collection("files").update({path: filePath, user: user.name}, {$set: {old: true}}, throwError)
 	
 	console.log("[server] file removed: %s", filePath.toString("hex"))
 	
@@ -268,7 +326,7 @@ function removeFile(filePath, answer, user) {
 
 // ((Buffer path, (uint size, uint mtime, string id)[] versions)[] files)
 function getFilesInfo(answer, user) {
-	var query = {user: user.userName}
+	var query = {user: user.name}
 	var fields = {size: "$size", mtime: "$mtime", id: "$localName"}
 	_db.collection("files").aggregate([
 		{$match: query},

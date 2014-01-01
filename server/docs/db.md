@@ -1,8 +1,9 @@
 # Users
 {
-	userName: string, // unique
+	name: string, // unique
 	password: Buffer, // SHA1 of the user login key
-	localName: string // the local name to store all files for this user
+	localName: string, // the local name to store all files for this user
+	quota: int // the max number of bytes for this user account
 }
 
 # Files
