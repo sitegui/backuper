@@ -295,14 +295,6 @@ function createUploadSession() {
 
 // Load the next chunk and start the chunk upload session
 function startNewChunkUpload() {
-	var ignore = function () {
-		// Ignore this file
-		if (_conn)
-			_conn.sendCall(CC_CANCEL_UPLOAD, _uploading.id)
-		_uploading = null
-		saveData()
-		stepUploadSequence()
-	}
 	var ignoreForNow = function () {
 		// Put the file back in the queue
 		if (_conn)
@@ -316,10 +308,17 @@ function startNewChunkUpload() {
 	try {
 		// Check for changes
 		stats = fs.statSync(_uploading.file)
-		if (stats.size != _uploading.size || hashDate(stats.mtime) != _uploading.mtime)
-			return ignore()
+		if (stats.size != _uploading.size || hashDate(stats.mtime) != _uploading.mtime) {
+			// Ignore this file
+			if (_conn)
+				_conn.sendCall(CC_CANCEL_UPLOAD, _uploading.id)
+			_uploading = null
+			saveData()
+			stepUploadSequence()
+			return
+		}
 	} catch (e) {
-		return ignore()
+		return ignoreForNow()
 	}
 	
 	// Load and encrypt the chunk
@@ -335,7 +334,12 @@ function startNewChunkUpload() {
 			if (!_conn) return
 			_conn.sendCall(CC_START_CHUNK_UPLOAD, data, function (chunkId) {
 				uploadChunk(buffer, chunkId)
-			}, ignoreForNow)
+			}, function (type) {
+				if (type == E_INVALID_SESSION)
+					ignoreForNow()
+				if (_conn)
+					_conn.close()
+			})
 		})
 	})
 }

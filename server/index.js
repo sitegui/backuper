@@ -158,7 +158,7 @@ function freeSpace(size, user, callback) {
 	]
 	_db.collection("files").aggregate(query, function (err, result) {
 		throwError(err)
-		var used = result[0].usedSpace
+		var used = result.length ? result[0].usedSpace : 0
 		var needToBeFreed = used+size-quota
 		var query, fields, sort
 		console.log("[needToBeFreed]", needToBeFreed)
@@ -234,6 +234,10 @@ function commitChunk(chunkId, answer, user) {
 		if (hash.toString("hex") != chunk.hash.toString("hex"))
 			return answer(new aP.Exception(E_CORRUPTED_DATA))
 		
+		// Check the size
+		if (data.length > 16+CHUNK_SIZE+16)
+			return answer(new aP.Exception(E_CORRUPTED_DATA))
+		
 		// Append to the upload session file
 		var append = function () {
 			fs.appendFile(uploadTempPath, data, function (err) {
@@ -243,7 +247,7 @@ function commitChunk(chunkId, answer, user) {
 				var query = {user: user.name, localName: chunk.upload.localName}
 				_db.collection("uploads").update(query, {$inc: {receivedChunks: 1}}, throwError)
 				
-				console.log("[server] chunk received for upload %s", chunk.upload.localName)
+				console.log("[server] %d/%d %s", chunk.upload.receivedChunks+1, Math.ceil(chunk.upload.size/CHUNK_SIZE), chunk.upload.localName)
 				
 				// Done
 				answer()
