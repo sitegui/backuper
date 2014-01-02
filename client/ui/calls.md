@@ -1,7 +1,9 @@
 # Client calls
 
-## 100: getUploaderStatus() -> (string status)
-Return the JSON-encoded version of Uploader.getStatus()
+## 100: getUploaderStatus() -> (string file, uint mtime, uint size, uint sentChunks)
+Return the current upload status
+If idle, file will be an empty string
+Whenever this changes, the server will send uploaderProgress()
 
 ## 101: getTree() -> (string tree)
 Return the tree of all know files (JSON-encoded)

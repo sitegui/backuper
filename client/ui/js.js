@@ -2,7 +2,7 @@
 
 "use strict"
 
-var CC_GET_UPLOADER_STATUS = aP.registerClientCall(100, "", "s")
+var CC_GET_UPLOADER_STATUS = aP.registerClientCall(100, "", "suuu")
 var CC_GET_TREE = aP.registerClientCall(101, "", "s")
 var CC_GET_WATCHED_FOLDERS = aP.registerClientCall(102, "", "(s)")
 var CC_ADD_WATCH_FOLDER = aP.registerClientCall(103, "s", "(s)")
@@ -11,15 +11,18 @@ var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "suuu")
 
 var _conn = new aP("ws://localhost:"+_port)
 _conn.onopen = function () {
-	_conn.sendCall(CC_GET_UPLOADER_STATUS, null, function (str) {
-		console.log(JSON.parse(str))
+	_conn.sendCall(CC_GET_UPLOADER_STATUS, null, function (data) {
+		updateUploaderStatus(data[0], data[1], data[2], data[3])
 	})
 	_conn.sendCall(CC_GET_TREE, null, function (str) {
 		FilesExplorer.setTree(JSON.parse(str))
 	})
+	_conn.sendCall(CC_GET_WATCHED_FOLDERS, null, function (folders) {
+		updateWatchedList(folders)
+	})
 	_conn.oncall = function (type, data, answer) {
 		if (type == SC_UPLOADER_PROGRESS) {
-			document.getElementById("out").textContent = JSON.stringify(data)
+			updateUploaderStatus(data[0], data[1], data[2], data[3])
 			answer()
 		}
 	}
@@ -34,4 +37,49 @@ window.onload = function () {
 
 function get(id) {
 	return document.getElementById(id)
+}
+
+// Update the info shown in the interface
+function updateUploaderStatus(file, mtime, size, sentChunks) {
+	var el = get("upload")
+	el.textContent = file
+}
+
+// Update the list of watched folders
+function updateWatchedList(folders) {
+	var el = get("watch-list")
+	el.innerHTML = ""
+	
+	// Append the folder names list
+	folders.forEach(function (folder) {
+		var li = document.createElement("li")
+		li.appendChild(document.createTextNode(folder+" - "))
+		var span = document.createElement("span")
+		span.textContent = "Remove"
+		span.onclick = function () {
+			_conn.sendCall(CC_REMOVE_WATCH_FOLDER, folder, function (folders) {
+				updateWatchedList(folders)
+			})
+			span.onclick = null
+		}
+		span.className = "button"
+		li.appendChild(span)
+		
+		el.appendChild(li)
+	})
+	
+	// Put the add button
+	var li = document.createElement("li")
+	var span = document.createElement("span")
+	span.textContent = "Add"
+	span.className = "button"
+	span.onclick = function () {
+		var folder = confirm("Input the folder name")
+		if (folder)
+			_conn.sendCall(CC_ADD_WATCH_FOLDER, folder, function (folders) {
+				updateWatchedList(folders)
+			})
+	}
+	li.appendChild(span)
+	el.appendChild(li)
 }
