@@ -70,16 +70,17 @@ Uploader.queueFileRemove = function (file) {
 	setFileInfo(file, REMOVE)
 }
 
-// Return {file: string, mtime: uint, size; uint, sentChunks: uint}
+// Return {file: string, mtime: uint, size; uint, sentChunks: uint, connected: bool}
 // If idle, file will be an empty string
 Uploader.getStatus = function () {
 	if (!_uploading)
-		return {file: "", mtime: 0, size: 0, sentChunks: 0}
+		return {file: "", mtime: 0, size: 0, sentChunks: 0, connected: Boolean(_conn)}
 	return {
 		file: _uploading.file,
 		mtime: _uploading.mtime,
 		size: _uploading.size,
-		sentChunks: _uploading.sentChunks
+		sentChunks: _uploading.sentChunks,
+		connected: Boolean(_conn)
 	}
 }
 

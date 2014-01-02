@@ -2,17 +2,17 @@
 
 "use strict"
 
-var CC_GET_UPLOADER_STATUS = aP.registerClientCall(100, "", "suuu")
+var CC_GET_UPLOADER_STATUS = aP.registerClientCall(100, "", "suuub")
 var CC_GET_TREE = aP.registerClientCall(101, "", "s")
 var CC_GET_WATCHED_FOLDERS = aP.registerClientCall(102, "", "(s)")
 var CC_ADD_WATCH_FOLDER = aP.registerClientCall(103, "s", "(s)")
 var CC_REMOVE_WATCH_FOLDER = aP.registerClientCall(104, "s", "(s)")
-var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "suuu")
+var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "suuub")
 
 var _conn = new aP("ws://localhost:"+_port)
 _conn.onopen = function () {
 	_conn.sendCall(CC_GET_UPLOADER_STATUS, null, function (data) {
-		updateUploaderStatus(data[0], data[1], data[2], data[3])
+		updateUploaderStatus(data[0], data[1], data[2], data[3], data[4])
 	})
 	_conn.sendCall(CC_GET_TREE, null, function (str) {
 		FilesExplorer.setTree(JSON.parse(str))
@@ -22,7 +22,7 @@ _conn.onopen = function () {
 	})
 	_conn.oncall = function (type, data, answer) {
 		if (type == SC_UPLOADER_PROGRESS) {
-			updateUploaderStatus(data[0], data[1], data[2], data[3])
+			updateUploaderStatus(data[0], data[1], data[2], data[3], data[4])
 			answer()
 		}
 	}
@@ -40,9 +40,15 @@ function get(id) {
 }
 
 // Update the info shown in the interface
-function updateUploaderStatus(file, mtime, size, sentChunks) {
+function updateUploaderStatus(file, mtime, size, sentChunks, connected) {
 	var el = get("upload")
-	el.textContent = file
+	var status
+	if (!file)
+		el.textContent = "Idle"
+	else {
+		status = connected ? Math.round(100*1024*1024*sentChunks/size)+"%" : "paused"
+		el.textContent = "Uploading "+file+" ("+status+")"
+	}
 }
 
 // Update the list of watched folders

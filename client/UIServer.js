@@ -22,12 +22,12 @@ var _watcher, _uploader, _aPServer
 var _conns = [] // current ws connections
 
 // Set-up protocol calls
-var CC_GET_UPLOADER_STATUS = aP.registerClientCall(100, "", "suuu")
+var CC_GET_UPLOADER_STATUS = aP.registerClientCall(100, "", "suuub")
 var CC_GET_TREE = aP.registerClientCall(101, "", "s")
 var CC_GET_WATCHED_FOLDERS = aP.registerClientCall(102, "", "(s)")
 var CC_ADD_WATCH_FOLDER = aP.registerClientCall(103, "s", "(s)")
 var CC_REMOVE_WATCH_FOLDER = aP.registerClientCall(104, "s", "(s)")
-var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "suuu")
+var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "suuub")
 
 // Start the server
 // Watcher and Uploader should be the other two loaded modules
@@ -97,12 +97,7 @@ exports.init = function (Watcher, Uploader) {
 	// Set the listener for Uploader activity
 	_uploader.on("update", function () {
 		if (_conns.length) {
-			var status = _uploader.getStatus()
-			var data = new aP.Data
-			data.addString(status.file)
-			data.addUint(status.mtime)
-			data.addUint(status.size)
-			data.addUint(status.sentChunks)
+			var data = uploaderStatus2Data()
 			_conns.forEach(function (conn) {
 				conn.sendCall(SC_UPLOADER_PROGRESS, data)
 			})
@@ -111,13 +106,19 @@ exports.init = function (Watcher, Uploader) {
 }
 
 function getUploaderStatus(answer) {
-	var stats = _uploader.getStatus()
+	answer(uploaderStatus2Data())
+}
+
+// Return the upload status in a aP.Data object
+function uploaderStatus2Data() {
+	var status = _uploader.getStatus()
 	var data = new aP.Data
 	data.addString(status.file)
 	data.addUint(status.mtime)
 	data.addUint(status.size)
 	data.addUint(status.sentChunks)
-	answer(data)
+	data.addBoolean(status.connected)
+	return data
 }
 
 function getTree(answer) {
