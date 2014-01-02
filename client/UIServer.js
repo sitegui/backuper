@@ -172,7 +172,7 @@ function mixTree(server, watcher, uploader) {
 			var serverItem = server===null ? null : (server ? server[item] : undefined)
 			var watcherItem = watcher ? watcher[item] : undefined
 			var uploaderItem = uploader ? uploader[item] : undefined
-			tree.items[item] = mixTree(serverItem, watcherItem, uploaderItem)
+			tree.items[item.substr(1)] = mixTree(serverItem, watcherItem, uploaderItem)
 		} else {
 			// A file
 			tree.items[item] = {

@@ -1,0 +1,172 @@
+html, body {
+	margin:0;
+	background-color:#F90;
+}
+
+body {
+	font-family:Verdana, sans-serif;
+}
+
+h1 {
+	background-color:rgba(0, 0, 0, .75);
+	padding:10px;
+	color:#EEE;
+	margin-top:0;
+}
+
+h2 {
+	background-color:rgba(0, 0, 0, .5);
+	padding:5px;
+	color:#EEE;
+	margin-top:0;
+	text-align:center;
+}
+
+.button {
+	cursor:pointer;
+	display:inline-block;
+	background-color:rgba(255, 255, 255, .25);
+	padding:3px;
+	border:thin rgba(255, 255, 255, .5) solid;
+}
+
+.folders-list > li {
+	border-top:thin black solid;
+	padding:5px;
+}
+
+.folders-list > li:first-child {
+	border-top:none;
+}
+
+.button:hover {
+	background-color:rgba(255, 255, 255, .75);
+}
+
+.path > span {
+	margin:3px;
+}
+
+.upload-content {
+	text-align:center;
+	font-weight:bold;
+}
+
+.panel {
+	padding:10px;
+	background-color:rgba(255, 255, 255, .1);
+}
+
+.panels {
+	display:table;
+	width:100%;
+	margin:1em 0;
+}
+
+.table-panel {
+	display:table-cell;
+}
+
+.items-stage {
+	margin:10px;
+}
+
+.items-stage::after {
+	content:".";
+	width:0;
+	height:0;
+	overflow:hidden;
+	display:block;
+	clear:both;
+}
+
+.item {
+	float:left;
+	width:120px;
+	height:120px;
+	margin:20px;
+	text-align:center;
+	position:relative;
+	background-size:64px;
+	background-repeat:no-repeat;
+	background-position:center top;
+}
+
+.item:after {
+	content:".";
+	color:transparent;
+	width:16px;
+	display:block;
+	height:16px;
+	position:absolute;
+	top:48px;
+	left:76px;
+}
+
+.item > img {
+	width:64px;
+}
+
+.item > span {
+	font-size:smaller;
+	max-height:56px;
+	max-width:120px;
+	overflow:hidden;
+	display:inline-block;
+	text-overflow:ellipsis;
+	margin-top:64px;
+}
+
+/*
+Icons
+*/
+.icon-compressed {background-image:url(icons/compressed.png);}
+.icon-css {background-image:url(icons/css.png);}
+.icon-developer {background-image:url(icons/developer.png);}
+.icon-excel {background-image:url(icons/excel.png);}
+.icon-file {background-image:url(icons/file.png);}
+.icon-fireworks {background-image:url(icons/fireworks.png);}
+.icon-flash {background-image:url(icons/flash.png);}
+.icon-folder {background-image:url(icons/folder.png);}
+.icon-html {background-image:url(icons/html.png);}
+.icon-illustrator {background-image:url(icons/illustrator.png);}
+.icon-image {background-image:url(icons/image.png);}
+.icon-keynote {background-image:url(icons/keynote.png);}
+.icon-movie {background-image:url(icons/movie.png);}
+.icon-music {background-image:url(icons/music.png);}
+.icon-numbers {background-image:url(icons/numbers.png);}
+.icon-pages {background-image:url(icons/pages.png);}
+.icon-pdf {background-image:url(icons/pdf.png);}
+.icon-photoshop {background-image:url(icons/photoshop.png);}
+.icon-powerpoint {background-image:url(icons/powerpoint.png);}
+.icon-text {background-image:url(icons/text.png);}
+.icon-word {background-image:url(icons/word.png);}
+
+.deleted {
+	opacity:.5;
+}
+
+.deleted.icon-compressed {background-image:url(icons/gray/compressed.png);}
+.deleted.icon-css {background-image:url(icons/gray/css.png);}
+.deleted.icon-developer {background-image:url(icons/gray/developer.png);}
+.deleted.icon-excel {background-image:url(icons/gray/excel.png);}
+.deleted.icon-file {background-image:url(icons/gray/file.png);}
+.deleted.icon-fireworks {background-image:url(icons/gray/fireworks.png);}
+.deleted.icon-flash {background-image:url(icons/gray/flash.png);}
+.deleted.icon-folder {background-image:url(icons/gray/folder.png);}
+.deleted.icon-html {background-image:url(icons/gray/html.png);}
+.deleted.icon-illustrator {background-image:url(icons/gray/illustrator.png);}
+.deleted.icon-image {background-image:url(icons/gray/image.png);}
+.deleted.icon-keynote {background-image:url(icons/gray/keynote.png);}
+.deleted.icon-movie {background-image:url(icons/gray/movie.png);}
+.deleted.icon-music {background-image:url(icons/gray/music.png);}
+.deleted.icon-numbers {background-image:url(icons/gray/numbers.png);}
+.deleted.icon-pages {background-image:url(icons/gray/pages.png);}
+.deleted.icon-pdf {background-image:url(icons/gray/pdf.png);}
+.deleted.icon-photoshop {background-image:url(icons/gray/photoshop.png);}
+.deleted.icon-powerpoint {background-image:url(icons/gray/powerpoint.png);}
+.deleted.icon-text {background-image:url(icons/gray/text.png);}
+.deleted.icon-word {background-image:url(icons/gray/word.png);}
+
+.icon-ok:after {background-image:url(icons/ok.png);}
+.icon-sync:after {background-image:url(icons/sync.png);}

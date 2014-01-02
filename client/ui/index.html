@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
 	<head>
-		<title>Backuper</title>
+		<title>BackUper</title>
 		
 		<script src="async-protocol/aP.js"></script>
 		<script src="async-protocol/Data.js"></script>
@@ -12,9 +12,7 @@
 		<script src="async-protocol/inflateFormat.js"></script>
 		<script src="async-protocol/Token.js"></script>
 		
-		<link href="jquery-ui/css/ui-lightness/jquery-ui-1.10.3.custom.css" rel="stylesheet">
-		<script src="js/jquery-1.9.1.js"></script>
-		<script src="js/jquery-ui-1.10.3.custom.js"></script>
+		<script src="FilesExplorer.js"></script>
 		
 		<script src="port.js"></script>
 		<script src="js.js"></script>
@@ -22,10 +20,27 @@
 	</head>
 	
 	<body>
-		<h1>Backuper</h1>
+		<h1>BackUper</h1>
 		
-		<h2>Watched folders</h2>
-		<div></div>
+		<div class="panels">
+			<div class="table-panel panel">
+				<h2>Watched folders</h2>
+				<ul class="folders-list">
+					<li>C://hi - <span class="button">Remove</span></li>
+					<li><span class="button">Add</span></li>
+				</ul>
+			</div>
+			
+			<div class="table-panel panel">
+				<h2>Upload progress</h2>
+				<div id="upload" class="upload-content">hi</div>
+			</div>
+		</div>
 		
+		<div class="panel">
+			<h2>Files</h2>
+			<div id="files-path" class="path"></div>
+			<div class="items-stage" id="files-stage"></div>
+		</div>
 	</body>
 </html>

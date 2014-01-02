@@ -22,12 +22,6 @@ Uploader.start(config.uploader)
 Uploader.on("start", function () {
 	// Set-up the watcher
 	Watcher.start(config.watcher)
-	Watcher.on("start", function () {
-		if (Watcher.getFolders().length == 0) {
-			Watcher.addFolder("C:\\Users\\Guilherme")
-			Watcher.addFolder("C:\\Program Files (x86)\\Zend\\Apache2\\htdocs")
-		}
-	})
 	
 	// Plug the watcher and uploader together
 	Watcher.on("filechange", function (file) {
