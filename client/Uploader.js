@@ -70,18 +70,22 @@ Uploader.queueFileRemove = function (file) {
 	setFileInfo(file, REMOVE)
 }
 
-// Return {file: string, mtime: uint, size; uint, sentChunks: uint, connected: bool}
+// Return {connected: bool, queueLength: uint, file: string, size: uint, progress: float}
 // If idle, file will be an empty string
 Uploader.getStatus = function () {
-	if (!_uploading)
-		return {file: "", mtime: 0, size: 0, sentChunks: 0, connected: Boolean(_conn)}
-	return {
-		file: _uploading.file,
-		mtime: _uploading.mtime,
-		size: _uploading.size,
-		sentChunks: _uploading.sentChunks,
-		connected: Boolean(_conn)
+	var status = {
+		connected: Boolean(_conn),
+		queueLength: _tree.getAllFiles().length,
+		file: "",
+		size: 0,
+		progress: 0
 	}
+	if (_uploading) {
+		status.file = _uploading.file
+		status.size = _uploading.size
+		status.progress = 100*CHUNK_SIZE*_uploading.sentChunks/_uploading.size
+	}
+	return status
 }
 
 // Return the tree of files in the server
@@ -416,10 +420,10 @@ var saveData = (function () {
 			console.log("[Uploader] Error while trying to save data into "+_config.dumpFile)
 		}
 		interval = null
-		Uploader.emit("update")
 	}
 	
 	return function () {
+		Uploader.emit("update")
 		if (interval)
 			clearTimeout(interval)
 		interval = setTimeout(doSave, 100)

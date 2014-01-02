@@ -2,12 +2,12 @@
 
 "use strict"
 
-var CC_GET_UPLOADER_STATUS = aP.registerClientCall(100, "", "suuub")
+var CC_GET_UPLOADER_STATUS = aP.registerClientCall(100, "", "busuf")
 var CC_GET_TREE = aP.registerClientCall(101, "", "s")
 var CC_GET_WATCHED_FOLDERS = aP.registerClientCall(102, "", "(s)")
 var CC_ADD_WATCH_FOLDER = aP.registerClientCall(103, "s", "(s)")
 var CC_REMOVE_WATCH_FOLDER = aP.registerClientCall(104, "s", "(s)")
-var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "suuub")
+var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "busuf")
 
 var _conn = new aP("ws://localhost:"+_port)
 _conn.onopen = function () {
@@ -40,13 +40,13 @@ function get(id) {
 }
 
 // Update the info shown in the interface
-function updateUploaderStatus(file, mtime, size, sentChunks, connected) {
+function updateUploaderStatus(connected, queueLength, file, size, progress) {
 	var el = get("upload")
 	var status
 	if (!file)
 		el.textContent = "Idle"
 	else {
-		status = connected ? Math.round(100*1024*1024*sentChunks/size)+"%" : "paused"
+		status = connected ? Math.round(100*progress)+"%" : "paused"
 		el.textContent = "Uploading "+file+" ("+status+")"
 	}
 }
@@ -80,7 +80,7 @@ function updateWatchedList(folders) {
 	span.textContent = "Add"
 	span.className = "button"
 	span.onclick = function () {
-		var folder = confirm("Input the folder name")
+		var folder = prompt("Input the folder name")
 		if (folder)
 			_conn.sendCall(CC_ADD_WATCH_FOLDER, folder, function (folders) {
 				updateWatchedList(folders)

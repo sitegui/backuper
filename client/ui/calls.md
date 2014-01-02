@@ -1,9 +1,10 @@
 # Client calls
 
-## 100: getUploaderStatus() -> (string file, uint mtime, uint size, uint sentChunks, bool connected)
+## 100: getUploaderStatus() -> (bool connected, uint queueLength, string file, uint size, float progress)
 Return the current upload status
 If idle, file will be an empty string
 Whenever this changes, the server will send uploaderProgress()
+progress is a value between 0 and 1
 
 ## 101: getTree() -> (string tree)
 Return the tree of all know files (JSON-encoded)
@@ -32,6 +33,6 @@ Return the new set of watched folders
 
 # Server calls
 
-## 100: uploaderProgress(string file, uint mtime, uint size, uint sentChunks, bool connected) -> ()
+## 100: uploaderProgress(bool connected, uint queueLength, string file, uint size, float progress) -> ()
 Broadcast any update to the uploader status
 If idle, file will be an empty string
