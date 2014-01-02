@@ -57,7 +57,7 @@ Watcher.addFolder = function (folder) {
 			// If this folder is a descendant of any registered folder, just ignore the action
 			return
 		else if (_folders[i].indexOf(folder) != 0) {
-			// Remove descendants
+			// Remove descendants (because it's redundant)
 			newFolders.push(_folders[i])
 			newQueue[_folders[i]] = _queue[_folders[i]]
 		}
@@ -77,8 +77,15 @@ Watcher.removeFolder = function (folder) {
 	folder = path.resolve(folder)
 	pos = _folders.indexOf(folder)
 	if (pos != -1) {
+		// Remove from the list and queue
 		_folders.splice(pos, 1)
 		delete _queue[folder]
+		
+		// Remove from the tree
+		var treeFolder = _tree.getFolder(folder)
+		treeFolder.getAllFiles().forEach(function (file) {
+			Watcher.emit("fileremove", path.join(folder, file))
+		})
 	}
 }
 

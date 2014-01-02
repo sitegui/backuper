@@ -20,6 +20,14 @@ Non-leaf items has these keys:
 	}
 Each bool indicate whether this branch exists in the respective tree
 
+## 102: getWatchedFolders() -> (string[] folders)
+
+## 103: addWatchFolder(string folder) -> (string[] folders)
+Return the new set of watched folders
+
+## 104: removeWatchFolder(string folder) -> (string[] folders)
+Return the new set of watched folders
+
 # Server calls
 
 ## 100: uploaderProgress(string file, uint mtime, uint size, uint sentChunks) -> ()

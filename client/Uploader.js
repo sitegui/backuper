@@ -337,8 +337,6 @@ function startNewChunkUpload() {
 			}, function (type) {
 				if (type == E_INVALID_SESSION)
 					ignoreForNow()
-				if (_conn)
-					_conn.close()
 			})
 		})
 	})

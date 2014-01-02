@@ -27,6 +27,11 @@ var CC_GET_FILES_INFO = aP.registerClientCall(8, "", "(B(uus))", [E_NOT_LOGGED_I
 
 var CHUNK_SIZE = 1*1024*1024 // 1 MiB
 
+// Set-up clean logic
+var clear = require("./clear.js")
+clear()
+setInterval(clear, config.maxAge/10)
+
 function throwError(err) {
 	if (err)
 		throw err
@@ -161,7 +166,6 @@ function freeSpace(size, user, callback) {
 		var used = result.length ? result[0].usedSpace : 0
 		var needToBeFreed = used+size-quota
 		var query, fields, sort
-		console.log("[needToBeFreed]", needToBeFreed)
 		if (needToBeFreed < 0)
 			// Ok, there is space for more
 			return callback(true)
@@ -170,7 +174,7 @@ function freeSpace(size, user, callback) {
 		query = {user: user.name, old: true}
 		fields = {size: true, localName: true}
 		sort = [["size", -1]]
-		_db.collection("files").find(query, fields).sort(sort, function (err, files) {
+		_db.collection("files").find(query, fields).sort(sort).toArray(function (err, files) {
 			var i, willBeDeleted = []
 			throwError(err)
 			
@@ -184,8 +188,6 @@ function freeSpace(size, user, callback) {
 			if (needToBeFreed > 0)
 				// It was not enough...
 				return callback(false)
-			
-			console.log("[willBeDeleted]", willBeDeleted)
 			
 			// Exclude files from db
 			var query = {localName: {$in: willBeDeleted}}
@@ -275,6 +277,9 @@ function cancelUpload(uploadId, answer, user) {
 			
 			// Remove from the database
 			_db.collection("uploads").remove({localName: uploadId, user: user.name}, throwError)
+			
+			// Possibly remove the partial commit from the data folder
+			fs.unlink(config.dataFolder+user.localName+path.sep+uploadId, function () {})
 			
 			console.log("[server] upload %s canceled", uploadId)
 		}

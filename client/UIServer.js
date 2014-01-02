@@ -24,6 +24,9 @@ var _conns = [] // current ws connections
 // Set-up protocol calls
 var CC_GET_UPLOADER_STATUS = aP.registerClientCall(100, "", "s")
 var CC_GET_TREE = aP.registerClientCall(101, "", "s")
+var CC_GET_WATCHED_FOLDERS = aP.registerClientCall(102, "", "(s)")
+var CC_ADD_WATCH_FOLDER = aP.registerClientCall(103, "s", "(s)")
+var CC_REMOVE_WATCH_FOLDER = aP.registerClientCall(104, "s", "(s)")
 var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "suuu")
 
 // Start the server
@@ -64,6 +67,12 @@ exports.init = function (Watcher, Uploader) {
 				getUploaderStatus(answer)
 			else if (type == CC_GET_TREE)
 				getTree(answer)
+			else if (type == CC_GET_WATCHED_FOLDERS)
+				getWatchedFolders(answer)
+			else if (type == CC_ADD_WATCH_FOLDER)
+				addWatchFolder(data, answer)
+			else if (type == CC_REMOVE_WATCH_FOLDER)
+				removeWatchFolder(data, answer)
 		})
 		
 		_conns.push(conn)
@@ -115,6 +124,20 @@ function getTree(answer) {
 		// Mix and return
 		answer(JSON.stringify(mixTree(serverTree, watcherTree, uploaderTree)))
 	})
+}
+
+function getWatchedFolders(answer) {
+	answer(new aP.Data().addStringArray(_watcher.getFolders()))
+}
+
+function addWatchFolder(folder, answer) {
+	_watcher.addFolder(folder)
+	getWatchedFolders(answer)
+}
+
+function removeWatchFolder(folder, answer) {
+	_watcher.removeFolder(folder)
+	getWatchedFolders(answer)
 }
 
 // Join the tree from the given sources
