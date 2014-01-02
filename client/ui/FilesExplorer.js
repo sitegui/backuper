@@ -1,5 +1,7 @@
 // Control the files explorer
 
+/*global Window*/
+
 "use strict"
 
 var FilesExplorer = {}
@@ -94,14 +96,14 @@ FilesExplorer._updateStageEl = function () {
 	folders.forEach(function (folderName) {
 		var item = folder.items[folderName]
 		var div = FilesExplorer._createDivForItem("icon-folder", item, folderName)
-		div.onclick = FilesExplorer._getFolderOnClick(folderName, "items" in item)
+		div.onclick = FilesExplorer._getFolderOnClick(folderName)
 		stageEl.appendChild(div)
 	})
 	
 	files.forEach(function (fileName) {
 		var item = folder.items[fileName]
 		var div = FilesExplorer._createDivForItem(FilesExplorer._getIconClass(fileName), item, fileName)
-		div.onclick = FilesExplorer._getFileOnClick()
+		div.onclick = FilesExplorer._getFileOnClick(fileName, item)
 		stageEl.appendChild(div)
 	})
 }
@@ -121,17 +123,34 @@ FilesExplorer._createDivForItem = function (iconClass, item, itemName) {
 	return div
 }
 
-FilesExplorer._getFolderOnClick = function (itemName) {
+FilesExplorer._getFolderOnClick = function (folderName) {
 	return function () {
-		FilesExplorer._path.push(itemName)
+		FilesExplorer._path.push(folderName)
 		FilesExplorer._updatePathEl()
 		FilesExplorer._updateStageEl()
 	}
 }
 
-FilesExplorer._getFileOnClick = function () {
+FilesExplorer._getFileOnClick = function (fileName, item) {
 	return function () {
+		var info
 		
+		if (!item.server) {
+			info = document.createElement("p")
+			info.textContent = "Could not connect to the server to grab more information about this file"
+		} else if (!item.server.length) {
+			info = document.createElement("p")
+			info.textContent = "This file is not backuped yet"
+		} else {
+			info = document.createElement("ul")
+			item.server.forEach(function (each) {
+				var li = document.createElement("li")
+				info.appendChild(li)
+				li.textContent = FilesExplorer._decodeDate(each.mtime)+" - "+each.size+" bytes"
+			})
+		}
+		
+		Window.open(fileName).appendChild(info)
 	}
 }
 
@@ -170,4 +189,23 @@ FilesExplorer._getIconClass = function (fileName) {
 			return "icon-"+key
 	
 	return "icon-file"
+}
+
+// Convert the number to a Date
+FilesExplorer._decodeDate = function (time) {
+	var d, m, y, h, i, date = new Date
+	
+	i = time%60
+	time = Math.floor(time/60)
+	h = time%24
+	time = Math.floor(time/24)
+	d = time%31
+	time = Math.floor(time/31)
+	m = time%12
+	time = Math.floor(time/12)
+	y = time
+	
+	date.setUTCFullYear(1990+y, m, d)
+	date.setUTCHours(h, i, 0, 0)
+	return date
 }

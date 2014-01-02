@@ -1,12 +1,14 @@
-/*global aP, _port, FilesExplorer*/
+/*global aP, _port, FilesExplorer, Window*/
 
 "use strict"
 
+var E_SERVER_IS_DOWN = aP.registerException(100)
 var CC_GET_UPLOADER_STATUS = aP.registerClientCall(100, "", "busuf")
 var CC_GET_TREE = aP.registerClientCall(101, "", "s")
 var CC_GET_WATCHED_FOLDERS = aP.registerClientCall(102, "", "(s)")
 var CC_ADD_WATCH_FOLDER = aP.registerClientCall(103, "s", "(s)")
 var CC_REMOVE_WATCH_FOLDER = aP.registerClientCall(104, "s", "(s)")
+var CC_GET_QUOTA_USAGE = aP.registerClientCall(105, "", "uuu", [E_SERVER_IS_DOWN])
 var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "busuf")
 
 var _conn = new aP("ws://localhost:"+_port)
@@ -33,6 +35,7 @@ _conn.onclose = function () {
 
 window.onload = function () {
 	FilesExplorer.init(get("files-path"), get("files-stage"))
+	Window.init()
 }
 
 function get(id) {

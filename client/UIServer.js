@@ -22,11 +22,13 @@ var _watcher, _uploader, _aPServer
 var _conns = [] // current ws connections
 
 // Set-up protocol calls
+var E_SERVER_IS_DOWN = aP.registerException(100)
 var CC_GET_UPLOADER_STATUS = aP.registerClientCall(100, "", "busuf")
 var CC_GET_TREE = aP.registerClientCall(101, "", "s")
 var CC_GET_WATCHED_FOLDERS = aP.registerClientCall(102, "", "(s)")
 var CC_ADD_WATCH_FOLDER = aP.registerClientCall(103, "s", "(s)")
 var CC_REMOVE_WATCH_FOLDER = aP.registerClientCall(104, "s", "(s)")
+var CC_GET_QUOTA_USAGE = aP.registerClientCall(105, "", "uuu", [E_SERVER_IS_DOWN])
 var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "busuf")
 
 // Start the server
@@ -73,6 +75,8 @@ exports.init = function (Watcher, Uploader) {
 				addWatchFolder(data, answer)
 			else if (type == CC_REMOVE_WATCH_FOLDER)
 				removeWatchFolder(data, answer)
+			else if (type == CC_GET_QUOTA_USAGE)
+				getQuotaUsage(answer)
 		})
 		
 		_conns.push(conn)
@@ -145,6 +149,14 @@ function addWatchFolder(folder, answer) {
 function removeWatchFolder(folder, answer) {
 	_watcher.removeFolder(folder)
 	getWatchedFolders(answer)
+}
+
+function getQuotaUsage(answer) {
+	_uploader.getQuotaUsage(function (result) {
+		if (!result)
+			return answer(new aP.Exception(E_SERVER_IS_DOWN))
+		answer(new aP.Data().addUint(result.total).addUint(result.free).addUint(result.softUse))
+	})
 }
 
 // Join the tree from the given sources

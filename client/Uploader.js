@@ -32,6 +32,7 @@ var CC_CANCEL_UPLOAD = aP.registerClientCall(5, "s", "", [E_NOT_LOGGED_IN])
 var CC_COMMIT_UPLOAD = aP.registerClientCall(6, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_WRONG_SIZE])
 var CC_REMOVE_FILE = aP.registerClientCall(7, "B", "", [E_NOT_LOGGED_IN])
 var CC_GET_FILES_INFO = aP.registerClientCall(8, "", "(B(uus))", [E_NOT_LOGGED_IN])
+var CC_GET_QUOTA_USAGE = aP.registerClientCall(9, "", "uuu")
 
 // Start the upload
 // config is an object with the keys "dumpFile", "host", "port", "uploadPort", "userName", "reconnectionTime", "loginKey", "aesKey", "aesIV", "maxUploadSpeed"
@@ -83,7 +84,7 @@ Uploader.getStatus = function () {
 	if (_uploading) {
 		status.file = _uploading.file
 		status.size = _uploading.size
-		status.progress = 100*CHUNK_SIZE*_uploading.sentChunks/_uploading.size
+		status.progress = CHUNK_SIZE*_uploading.sentChunks/_uploading.size
 	}
 	return status
 }
@@ -127,6 +128,23 @@ Uploader.getServerTree = function (callback) {
 // 0 means UPDATE, 1 REMOVE
 Uploader.getTree = function () {
 	return _tree.toJSON()
+}
+
+// Ask the server about the current quota usage
+// callback(result) will be called with an object with the keys "total", "free", "softUse"
+// If the server couldn't be reached, result will be null
+Uploader.getQuotaUsage = function (callback) {
+	connect(function (conn) {
+		if (!conn)
+			return callback(null)
+		conn.sendCall(CC_GET_QUOTA_USAGE, null, function (total, free, softUse) {
+			callback({total: total, free: free, softUse: softUse})
+			conn.close()
+		}, function () {
+			callback(null)
+			conn.close()
+		})
+	})
 }
 
 /*

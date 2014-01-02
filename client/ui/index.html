@@ -12,6 +12,7 @@
 		<script src="async-protocol/inflateFormat.js"></script>
 		<script src="async-protocol/Token.js"></script>
 		
+		<script src="Window.js"></script>
 		<script src="FilesExplorer.js"></script>
 		
 		<script src="port.js"></script>
@@ -38,6 +39,14 @@
 			<h2>Files</h2>
 			<div id="files-path" class="path"></div>
 			<div class="items-stage" id="files-stage"></div>
+		</div>
+		
+		<div class="window-background" style="display:none" id="window">
+			<div class="window">
+				<img src="icons/cross.png" class="button window-close" onclick="Window.close()">
+				<h2 id="window-title"></h2>
+				<div id="window-content"></div>
+			</div>
 		</div>
 	</body>
 </html>

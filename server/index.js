@@ -24,6 +24,7 @@ var CC_CANCEL_UPLOAD = aP.registerClientCall(5, "s", "", [E_NOT_LOGGED_IN])
 var CC_COMMIT_UPLOAD = aP.registerClientCall(6, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_WRONG_SIZE])
 var CC_REMOVE_FILE = aP.registerClientCall(7, "B", "", [E_NOT_LOGGED_IN])
 var CC_GET_FILES_INFO = aP.registerClientCall(8, "", "(B(uus))", [E_NOT_LOGGED_IN])
+var CC_GET_QUOTA_USAGE = aP.registerClientCall(9, "", "uuu")
 
 var CHUNK_SIZE = 1*1024*1024 // 1 MiB
 
@@ -65,6 +66,8 @@ net.createServer(function (conn) {
 				removeFile(data, answer, conn.user)
 			else if (type == CC_GET_FILES_INFO)
 				getFilesInfo(answer, conn.user)
+			else if (type == CC_GET_QUOTA_USAGE)
+				getQuotaUsage()
 		}
 	})
 }).listen(config.port)
@@ -362,6 +365,37 @@ function getFilesInfo(answer, user) {
 		})
 		
 		answer(array)
+	})
+}
+
+// (uint total, uint free, uint softUse)
+function getQuotaUsage(answer, user) {
+	// Get the total space
+	var query = {name: user.name}
+	_db.collection("users").findOne(query, function (err, userData) {
+		throwError(err)
+		var total = userData.quota
+		
+		// Get used (soft and hard)
+		var query = [
+			{$match: {user: user.name}},
+			{$group: {_id: "$old", totalSize: {$sum: "$size"}}}
+		]
+		_db.collection("files").aggregate(query, function (err, result) {
+			throwError(err)
+			
+			var soft = 0, hard = 0
+			result.forEach(function (each) {
+				if (each._id)
+					soft = each.totalSize
+				else
+					hard = each.totalSize
+			})
+			
+			// Ready to return
+			var free = Math.max(total-hard-soft, 0)
+			answer(new aP.Data().addUint(total).addUint(free).addUint(soft))
+		})
 	})
 }
 

@@ -45,3 +45,7 @@ Throws: NOT_LOGGED_IN
 ## 8: getFilesInfo() -> ((Buffer path, (uint size, uint mtime, string id)[] versions)[] files)
 Throws: NOT_LOGGED_IN
 Return the info about all files for the current user
+
+## 9: getQuotaUsage() -> (uint total, uint free, uint softUse)
+Return info about the current user quota (in bytes)
+softUse is the space taken by old versions (space that can be freed whenever needed)

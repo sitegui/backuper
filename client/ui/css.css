@@ -170,3 +170,32 @@ Icons
 
 .icon-ok:after {background-image:url(icons/ok.png);}
 .icon-sync:after {background-image:url(icons/sync.png);}
+
+/*
+Window
+*/
+
+.window-background {
+	position:fixed;
+	background-color:rgba(0, 0, 0, .1);
+	width:100%;
+	height:100%;
+	top:0;
+	left:0;
+}
+
+.window {
+	position:absolute;
+	width:60%;
+	height:60%;
+	top:20%;
+	left:20%;
+	background-color:rgba(255, 255, 255, .9);
+}
+
+.window-close {
+	position:absolute;
+	top:0;
+	right:0;
+	width:20px;
+}

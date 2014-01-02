@@ -1,3 +1,8 @@
+# Exceptions
+
+## 100: SERVER_IS_DOWN()
+Sent when the server hasn't responded
+
 # Client calls
 
 ## 100: getUploaderStatus() -> (bool connected, uint queueLength, string file, uint size, float progress)
@@ -30,6 +35,11 @@ Return the new set of watched folders
 
 ## 104: removeWatchFolder(string folder) -> (string[] folders)
 Return the new set of watched folders
+
+## 105: getQuotaUsage() -> (uint total, uint free, uint softUse)
+Throw: SERVER_IS_DOWN
+Return info about the current user quota (in bytes)
+softUse is the space taken by old versions (space that can be freed whenever needed)
 
 # Server calls
 
