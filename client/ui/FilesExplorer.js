@@ -162,14 +162,14 @@ FilesExplorer._getIconClass = function (fileName) {
 		compressed: ["zip", "rar"],
 		css: ["css"],
 		developer: ["js", "php"],
-		excel: ["xls", "xlsx"],
+		excel: ["xls", "xlsx", "xlt", "xltx"],
 		fireworks: [],
 		flash: ["fla", "swf"],
 		html: ["htm", "html"],
 		illustrator: ["ai"],
 		image: ["png", "gif", "jpg", "jpeg", "ico"],
 		keynote: [],
-		movie: ["mp4", "rmvb"],
+		movie: ["mp4", "rmvb", "wmv", "mpg", "mpeg", "asf"],
 		music: ["mp3", "wav"],
 		numbers: [],
 		pages: [],
@@ -177,7 +177,7 @@ FilesExplorer._getIconClass = function (fileName) {
 		photoshop: [],
 		powerpoint: ["ppt", "pptx", "pps", "ppsx"],
 		text: ["txt", "md", "json", "sql"],
-		word: ["doc", "docx"]
+		word: ["doc", "docx", "dot", "dotx"]
 	}
 	
 	pos = fileName.lastIndexOf(".")
@@ -208,8 +208,7 @@ FilesExplorer._decodeDate = function (time) {
 	date.setUTCFullYear(1990+y, m, d)
 	date.setUTCHours(h, i, 0, 0)
 	
-	time = date.getTime()
-	delta = date.now()-time
+	delta = Date.now()-date.getTime()
 	
 	if (delta < 2*60*1e3)
 		return "just now"

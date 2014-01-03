@@ -13,6 +13,7 @@ function throwError(err) {
 }
 
 module.exports = function () {
+	console.log("[clear]")
 	var maxTimestamp = Date.now()-config.maxAge
 	
 	// Old sessions in the DB

@@ -86,6 +86,7 @@ Watcher.removeFolder = function (folder) {
 		treeFolder.getAllFiles().forEach(function (file) {
 			Watcher.emit("fileremove", path.join(folder, file))
 		})
+		_tree.getFolder(path.dirname(folder)).removeItem(path.basename(folder))
 	}
 }
 
@@ -159,6 +160,7 @@ var runStep = function () {
 			_queue[root] = [root]
 		console.log("[Watcher] end of cicle")
 		_lastCicleTime = Date.now()
+		_tree.clear()
 	}
 	setTimeout(runStep, _config.timeBetweenSteps)
 }

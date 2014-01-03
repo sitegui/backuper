@@ -127,6 +127,7 @@ Uploader.getServerTree = function (callback) {
 // Each leaf is an int to indicate the kind of operation is scheduled for the file
 // 0 means UPDATE, 1 REMOVE
 Uploader.getTree = function () {
+	_tree.clear()
 	return _tree.toJSON()
 }
 
@@ -477,7 +478,7 @@ function sha1(buffer) {
 // Return an encrypted buffer for the given file path
 function encodeFilePath(filePath) {
 	var cipher = crypto.createCipheriv("aes128", _config.aesKey, _config.aesIV)
-	cipher.end(filePath)
+	cipher.end(new Buffer(filePath))
 	return cipher.read()
 }
 
