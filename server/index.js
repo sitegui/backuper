@@ -17,13 +17,13 @@ var E_WRONG_SIZE = aP.registerException(5)
 var E_CORRUPTED_DATA = aP.registerException(6)
 
 var CC_LOGIN = aP.registerClientCall(1, "st", "", [E_LOGIN_ERROR])
-var CC_START_UPLOAD = aP.registerClientCall(2, "BuuB", "s", [E_NOT_LOGGED_IN, E_OUT_OF_SPACE])
+var CC_START_UPLOAD = aP.registerClientCall(2, "BiuB", "s", [E_NOT_LOGGED_IN, E_OUT_OF_SPACE])
 var CC_START_CHUNK_UPLOAD = aP.registerClientCall(3, "sB", "s", [E_NOT_LOGGED_IN, E_INVALID_SESSION])
 var CC_COMMIT_CHUNK = aP.registerClientCall(4, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_CORRUPTED_DATA])
 var CC_CANCEL_UPLOAD = aP.registerClientCall(5, "s", "", [E_NOT_LOGGED_IN])
 var CC_COMMIT_UPLOAD = aP.registerClientCall(6, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_WRONG_SIZE])
 var CC_REMOVE_FILE = aP.registerClientCall(7, "B", "", [E_NOT_LOGGED_IN])
-var CC_GET_FILES_INFO = aP.registerClientCall(8, "", "(B(uus))", [E_NOT_LOGGED_IN])
+var CC_GET_FILES_INFO = aP.registerClientCall(8, "", "(B(uis))", [E_NOT_LOGGED_IN])
 var CC_GET_QUOTA_USAGE = aP.registerClientCall(9, "", "uuu")
 
 var CHUNK_SIZE = 1*1024*1024 // 1 MiB
@@ -75,7 +75,7 @@ net.createServer(function (conn) {
 }).listen(config.port)
 
 // Create the server for the upload port
-net.createServer(function (conn) {
+net.createServer({allowHalfOpen: true}, function (conn) {
 	var buffer = new Buffer(0)
 	var stream
 	var onreadable = function () {
@@ -93,6 +93,13 @@ net.createServer(function (conn) {
 			stream = fs.createWriteStream(config.tempChunksFolder+id)
 			stream.write(buffer.slice(32))
 			conn.pipe(stream)
+			stream.once("finish", function () {
+				console.log("[server]", "stream", "finish")
+				conn.end(".") // warn everything was received
+			})
+			conn.once("end", function () {
+				console.log("[server]", "conn", "end")
+			})
 		}
 		conn.removeListener("readable", onreadable)
 	}
@@ -340,7 +347,7 @@ function removeFile(filePath, answer, user) {
 	answer()
 }
 
-// ((Buffer path, (uint size, uint mtime, string id)[] versions)[] files)
+// ((Buffer path, (uint size, int mtime, string id)[] versions)[] files)
 function getFilesInfo(answer, user) {
 	var query = {user: user.name}
 	var fields = {size: "$size", mtime: "$mtime", id: "$localName"}
@@ -350,17 +357,17 @@ function getFilesInfo(answer, user) {
 	], function (err, files) {
 		throwError(err)
 		
-		// Convert to the format (B(uus))
-		var array = new aP.DataArray("B(uus)")
+		// Convert to the format (B(uis))
+		var array = new aP.DataArray("B(uis)")
 		files.forEach(function (file) {
 			var data = new aP.Data
 			data.addBuffer(file._id.buffer)
 			
-			var versions = new aP.DataArray("uus")
+			var versions = new aP.DataArray("uis")
 			file.versions.forEach(function (version) {
 				var data = new aP.Data
 				data.addUint(version.size)
-				data.addUint(version.mtime)
+				data.addInt(version.mtime)
 				data.addString(version.id)
 				versions.addData(data)
 			})

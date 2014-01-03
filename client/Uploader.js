@@ -25,13 +25,13 @@ var E_WRONG_SIZE = aP.registerException(5)
 var E_CORRUPTED_DATA = aP.registerException(6)
 
 var CC_LOGIN = aP.registerClientCall(1, "st", "", [E_LOGIN_ERROR])
-var CC_START_UPLOAD = aP.registerClientCall(2, "BuuB", "s", [E_NOT_LOGGED_IN, E_OUT_OF_SPACE])
+var CC_START_UPLOAD = aP.registerClientCall(2, "BiuB", "s", [E_NOT_LOGGED_IN, E_OUT_OF_SPACE])
 var CC_START_CHUNK_UPLOAD = aP.registerClientCall(3, "sB", "s", [E_NOT_LOGGED_IN, E_INVALID_SESSION])
 var CC_COMMIT_CHUNK = aP.registerClientCall(4, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_CORRUPTED_DATA])
 var CC_CANCEL_UPLOAD = aP.registerClientCall(5, "s", "", [E_NOT_LOGGED_IN])
 var CC_COMMIT_UPLOAD = aP.registerClientCall(6, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_WRONG_SIZE])
 var CC_REMOVE_FILE = aP.registerClientCall(7, "B", "", [E_NOT_LOGGED_IN])
-var CC_GET_FILES_INFO = aP.registerClientCall(8, "", "(B(uus))", [E_NOT_LOGGED_IN])
+var CC_GET_FILES_INFO = aP.registerClientCall(8, "", "(B(uis))", [E_NOT_LOGGED_IN])
 var CC_GET_QUOTA_USAGE = aP.registerClientCall(9, "", "uuu")
 
 // Start the upload
@@ -294,9 +294,9 @@ function createUploadSession() {
 			// Things went wrong in the mean time
 			return
 		
-		// Create the data package (Buffer filePath, uint mtime, uint size, Buffer originalHash)
+		// Create the data package (Buffer filePath, int mtime, uint size, Buffer originalHash)
 		data.addBuffer(encodeFilePath(_uploading.file))
-			.addUint(_uploading.mtime)
+			.addInt(_uploading.mtime)
 			.addUint(_uploading.size)
 			.addBuffer(hash.read())
 		

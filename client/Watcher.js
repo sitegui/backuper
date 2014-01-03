@@ -62,7 +62,7 @@ Watcher.addFolder = function (folder) {
 			newQueue[_folders[i]] = _queue[_folders[i]]
 		}
 	newFolders.push(folder)
-	newQueue[folder] = []
+	newQueue[folder] = [""]
 	_folders = newFolders
 	_queue = newQueue
 }
@@ -148,7 +148,7 @@ var runStep = function () {
 		// Unqueue up to _config.foldersPerStep folders
 		// Pick their content and queue subfolders
 		while (openedFolders < _config.foldersPerStep && queue.length) {
-			readFolderFromQueue(queue)
+			readFolderFromQueue(root, queue)
 			openedFolders++
 		}
 	}
@@ -157,7 +157,7 @@ var runStep = function () {
 	if (!openedFolders) {
 		// Restart all queues
 		for (root in _queue)
-			_queue[root] = [root]
+			_queue[root] = [""]
 		console.log("[Watcher] end of cicle")
 		_lastCicleTime = Date.now()
 		_tree.clear()
@@ -166,8 +166,9 @@ var runStep = function () {
 }
 
 // Read the content of the given folder and queue new items
-var readFolderFromQueue = function (queue) {
-	var folder = queue.shift()
+var readFolderFromQueue = function (root, queue) {
+	var folder = path.join(root, queue.shift())
+	console.log("[Watcher]", folder)
 	var folderTree = _tree.getFolder(folder)
 	fs.readdir(folder, function (err, items) {
 		if (!err) {
@@ -208,7 +209,7 @@ var readFolderFromQueue = function (queue) {
 						}
 					} else if (stats.isDirectory()) {
 						// Add to the original queue
-						queue.push(itemPath)
+						queue.push(itemPath.substr(root.length+1))
 					}
 				})
 			})

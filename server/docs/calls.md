@@ -13,7 +13,7 @@
 Throws: LOGIN_ERROR
 The password is stored in the first 16B of "keys" file
 
-## 2: startUpload(Buffer filePath, uint mtime, uint size, Buffer originalHash) -> (string uploadId)
+## 2: startUpload(Buffer filePath, int mtime, uint size, Buffer originalHash) -> (string uploadId)
 Throws: NOT_LOGGED_IN, OUT_OF_SPACE
 originalHash is the sha1 of the original (decrypted) file
 Create a new upload session for a given file
@@ -42,7 +42,7 @@ This call will only return after the file is completely copied to final destinat
 ## 7: removeFile(Buffer filePath) -> ()
 Throws: NOT_LOGGED_IN
 
-## 8: getFilesInfo() -> ((Buffer path, (uint size, uint mtime, string id)[] versions)[] files)
+## 8: getFilesInfo() -> ((Buffer path, (uint size, int mtime, string id)[] versions)[] files)
 Throws: NOT_LOGGED_IN
 Return the info about all files for the current user
 
