@@ -96,6 +96,17 @@ Watcher.getFolders = function () {
 	return _folders.slice(0)
 }
 
+// Return an array where every element is an object with the format:
+// {name: string, files: uint}
+Watcher.getFoldersInfo = function () {
+	if (!_started)
+		throw new Error("Watcher hasn't started")
+	return _folders.map(function (folder) {
+		var files = _tree.getFolder(folder).getAllFiles().length
+		return {name: folder, files: files}
+	})
+}
+
 // Return an copy of the internal tree
 // Each leaf is an int to indicate the mtime of the watched file
 Watcher.getTree = function () {

@@ -67,7 +67,7 @@ net.createServer(function (conn) {
 			else if (type == CC_GET_FILES_INFO)
 				getFilesInfo(answer, conn.user)
 			else if (type == CC_GET_QUOTA_USAGE)
-				getQuotaUsage()
+				getQuotaUsage(answer, conn.user)
 		}
 	})
 }).listen(config.port)

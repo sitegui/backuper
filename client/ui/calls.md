@@ -28,12 +28,12 @@ Non-leaf items has these keys:
 	}
 Each bool indicate whether this branch exists in the respective tree
 
-## 102: getWatchedFolders() -> (string[] folders)
+## 102: getWatchedFolders -> folders[]: (name: string, files: uint)
 
-## 103: addWatchFolder(string folder) -> (string[] folders)
+## 103: addWatchFolder(string folder) -> folders[]: (name: string, files: uint)
 Return the new set of watched folders
 
-## 104: removeWatchFolder(string folder) -> (string[] folders)
+## 104: removeWatchFolder(string folder) -> folders[]: (name: string, files: uint)
 Return the new set of watched folders
 
 ## 105: getQuotaUsage() -> (uint total, uint free, uint softUse)

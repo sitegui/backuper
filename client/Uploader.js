@@ -84,7 +84,7 @@ Uploader.getStatus = function () {
 	if (_uploading) {
 		status.file = _uploading.file
 		status.size = _uploading.size
-		status.progress = CHUNK_SIZE*_uploading.sentChunks/_uploading.size
+		status.progress = Math.min(1, CHUNK_SIZE*_uploading.sentChunks/_uploading.size)
 	}
 	return status
 }
@@ -137,8 +137,8 @@ Uploader.getQuotaUsage = function (callback) {
 	connect(function (conn) {
 		if (!conn)
 			return callback(null)
-		conn.sendCall(CC_GET_QUOTA_USAGE, null, function (total, free, softUse) {
-			callback({total: total, free: free, softUse: softUse})
+		conn.sendCall(CC_GET_QUOTA_USAGE, null, function (data) {
+			callback({total: data[0], free: data[1], softUse: data[2]})
 			conn.close()
 		}, function () {
 			callback(null)

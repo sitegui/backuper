@@ -25,9 +25,9 @@ var _conns = [] // current ws connections
 var E_SERVER_IS_DOWN = aP.registerException(100)
 var CC_GET_UPLOADER_STATUS = aP.registerClientCall(100, "", "busuf")
 var CC_GET_TREE = aP.registerClientCall(101, "", "s")
-var CC_GET_WATCHED_FOLDERS = aP.registerClientCall(102, "", "(s)")
-var CC_ADD_WATCH_FOLDER = aP.registerClientCall(103, "s", "(s)")
-var CC_REMOVE_WATCH_FOLDER = aP.registerClientCall(104, "s", "(s)")
+var CC_GET_WATCHED_FOLDERS = aP.registerClientCall(102, "", "(su)")
+var CC_ADD_WATCH_FOLDER = aP.registerClientCall(103, "s", "(su)")
+var CC_REMOVE_WATCH_FOLDER = aP.registerClientCall(104, "s", "(su)")
 var CC_GET_QUOTA_USAGE = aP.registerClientCall(105, "", "uuu", [E_SERVER_IS_DOWN])
 var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "busuf")
 
@@ -138,7 +138,12 @@ function getTree(answer) {
 }
 
 function getWatchedFolders(answer) {
-	answer(new aP.Data().addStringArray(_watcher.getFolders()))
+	var info = _watcher.getFoldersInfo()
+	var data = new aP.DataArray("su")
+	info.forEach(function (folder) {
+		data.addData(new aP.Data().addString(folder.name).addUint(folder.files))
+	})
+	answer(data)
 }
 
 function addWatchFolder(folder, answer) {
