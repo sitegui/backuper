@@ -1,6 +1,6 @@
 // Control the files explorer
 
-/*global Window*/
+/*global Window, bytes2str*/
 
 "use strict"
 
@@ -146,7 +146,7 @@ FilesExplorer._getFileOnClick = function (fileName, item) {
 			item.server.forEach(function (each) {
 				var li = document.createElement("li")
 				info.appendChild(li)
-				li.textContent = FilesExplorer._decodeDate(each.mtime)+" - "+each.size+" bytes"
+				li.textContent = FilesExplorer._decodeDate(each.mtime)+" - "+bytes2str(each.size)
 			})
 		}
 		
@@ -164,7 +164,7 @@ FilesExplorer._getIconClass = function (fileName) {
 		developer: ["js", "php"],
 		excel: ["xls", "xlsx"],
 		fireworks: [],
-		flash: ["fla"],
+		flash: ["fla", "swf"],
 		html: ["htm", "html"],
 		illustrator: ["ai"],
 		image: ["png", "gif", "jpg", "jpeg", "ico"],
@@ -191,9 +191,9 @@ FilesExplorer._getIconClass = function (fileName) {
 	return "icon-file"
 }
 
-// Convert the number to a Date
+// Convert the number to a relative, human-readable date (string)
 FilesExplorer._decodeDate = function (time) {
-	var d, m, y, h, i, date = new Date
+	var d, m, y, h, i, date = new Date, delta
 	
 	i = time%60
 	time = Math.floor(time/60)
@@ -207,5 +207,19 @@ FilesExplorer._decodeDate = function (time) {
 	
 	date.setUTCFullYear(1990+y, m, d)
 	date.setUTCHours(h, i, 0, 0)
-	return date
+	
+	time = date.getTime()
+	delta = date.now()-time
+	
+	if (delta < 2*60*1e3)
+		return "just now"
+	if (delta < 2*60*60*1e3)
+		return Math.round(delta/(60*1e3))+" minutes ago"
+	if (delta < 2*24*60*60*1e3)
+		return Math.round(delta/(60*60*1e3))+" hours ago"
+	if (delta < 2*30.4375*24*60*60*1e3)
+		return Math.round(delta/(24*60*60*1e3))+" days ago"
+	if (delta < 2*365.25*24*60*60*1e3)
+		return Math.round(delta/(30.4375*24*60*60*1e3))+" months ago"
+	return Math.round(delta/(365.25*24*60*60*1e3))+" years ago"
 }

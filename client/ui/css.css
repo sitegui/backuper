@@ -20,6 +20,8 @@ h2 {
 	color:#EEE;
 	margin-top:0;
 	text-align:center;
+	overflow:hidden;
+	text-overflow:ellipsis;
 }
 
 .button {

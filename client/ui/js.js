@@ -16,6 +16,26 @@ _conn.onopen = function () {
 	_conn.sendCall(CC_GET_UPLOADER_STATUS, null, function (data) {
 		updateUploaderStatus(data[0], data[1], data[2], data[3], data[4])
 	})
+	_conn.oncall = function (type, data, answer) {
+		if (type == SC_UPLOADER_PROGRESS) {
+			updateUploaderStatus(data[0], data[1], data[2], data[3], data[4])
+			answer()
+		}
+	}
+	fullUpdate()
+	setInterval(fullUpdate, 5*60*1e3)
+}
+_conn.onclose = function () {
+	Window.open("Connection error").textContent = "Please refresh the page to try again"
+}
+
+window.onload = function () {
+	FilesExplorer.init(get("files-path"), get("files-stage"))
+	Window.init()
+}
+
+// Reload the tree, the quota and the folder list from the server
+function fullUpdate() {
 	_conn.sendCall(CC_GET_TREE, null, function (str) {
 		FilesExplorer.setTree(JSON.parse(str))
 	})
@@ -25,20 +45,6 @@ _conn.onopen = function () {
 	_conn.sendCall(CC_GET_QUOTA_USAGE, null, function (info) {
 		updateQuota(info)
 	})
-	_conn.oncall = function (type, data, answer) {
-		if (type == SC_UPLOADER_PROGRESS) {
-			updateUploaderStatus(data[0], data[1], data[2], data[3], data[4])
-			answer()
-		}
-	}
-}
-_conn.onclose = function () {
-	Window.open("Connection error").textContent = "Please refresh the page to try again"
-}
-
-window.onload = function () {
-	FilesExplorer.init(get("files-path"), get("files-stage"))
-	Window.init()
 }
 
 function get(id) {
@@ -57,9 +63,10 @@ function updateUploaderStatus(connected, queueLength, file, size, progress) {
 	if (!file)
 		progressEl.textContent = "No current upload"
 	else {
+		progress = connected ? Math.floor(100*progress)+"%" : "paused"
 		progressEl.textContent = "Uploading "
 		progressEl.appendChild(getSpanForPath(file))
-		progressEl.appendChild(document.createTextNode(" ("+connected ? Math.floor(100*progress) : "paused"+")"))
+		progressEl.appendChild(document.createTextNode(" ("+progress+")"))
 	}
 }
 
@@ -116,12 +123,11 @@ function getSpanForPath(path) {
 	
 	var innerSpan = document.createElement("span")
 	innerSpan.style.fontSize = "larger"
-	innerSpan.style.color = "black"
 	innerSpan.textContent = parts.pop()
 	
 	var outerSpan = document.createElement("span")
 	outerSpan.style.fontSize = "smaller"
-	outerSpan.style.color = "gray"
+	outerSpan.style.fontStyle = "italic"
 	outerSpan.textContent = parts.join("/")+"/"
 	outerSpan.appendChild(innerSpan)
 	

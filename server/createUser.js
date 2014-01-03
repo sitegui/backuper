@@ -35,7 +35,7 @@ MongoClient.connect(config.mongoURL, function (err, db) {
 		name: userName,
 		password: password,
 		localName: localName,
-		quota: 1024*1024*1024 // 1 GiB
+		quota: 50*1024*1024*1024 // 50 GiB
 	}
 	db.collection("users").update({name: userName}, data, {upsert: true}, function (err) {
 		if (err)
