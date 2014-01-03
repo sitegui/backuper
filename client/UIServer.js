@@ -29,6 +29,7 @@ var CC_GET_WATCHED_FOLDERS = aP.registerClientCall(102, "", "(su)")
 var CC_ADD_WATCH_FOLDER = aP.registerClientCall(103, "s", "(su)")
 var CC_REMOVE_WATCH_FOLDER = aP.registerClientCall(104, "s", "(su)")
 var CC_GET_QUOTA_USAGE = aP.registerClientCall(105, "", "uuu", [E_SERVER_IS_DOWN])
+var CC_GET_FOLDERS_IN_DIR = aP.registerClientCall(106, "s", "(s)")
 var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "busuf")
 
 // Start the server
@@ -77,6 +78,8 @@ exports.init = function (Watcher, Uploader) {
 				removeWatchFolder(data, answer)
 			else if (type == CC_GET_QUOTA_USAGE)
 				getQuotaUsage(answer)
+			else if (type == CC_GET_FOLDERS_IN_DIR)
+				getFoldersInDir(data, answer)
 		})
 		
 		_conns.push(conn)
@@ -161,6 +164,22 @@ function getQuotaUsage(answer) {
 		if (!result)
 			return answer(new aP.Exception(E_SERVER_IS_DOWN))
 		answer(new aP.Data().addUint(result.total).addUint(result.free).addUint(result.softUse))
+	})
+}
+
+function getFoldersInDir(dir, answer) {
+	fs.readdir(dir, function (err, items) {
+		var data = new aP.DataArray("s")
+		
+		if (!err)
+			items.forEach(function (item) {
+				try {
+					if (fs.statSync(path.join(dir, item)).isDirectory())
+						data.addData(new aP.Data().addString(item))
+				} catch (e) {}
+			})
+		
+		return answer(data)
 	})
 }
 

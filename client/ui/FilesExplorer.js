@@ -128,6 +128,7 @@ FilesExplorer._getFolderOnClick = function (folderName) {
 		FilesExplorer._path.push(folderName)
 		FilesExplorer._updatePathEl()
 		FilesExplorer._updateStageEl()
+		window.scrollTo(0, 0)
 	}
 }
 
@@ -140,7 +141,7 @@ FilesExplorer._getFileOnClick = function (fileName, item) {
 			info.textContent = "Could not connect to the server to grab more information about this file"
 		} else if (!item.server.length) {
 			info = document.createElement("p")
-			info.textContent = "This file is not backuped yet"
+			info.textContent = "This file is not backed up yet"
 		} else {
 			info = document.createElement("ul")
 			item.server.forEach(function (each) {

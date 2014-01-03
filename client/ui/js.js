@@ -1,4 +1,4 @@
-/*global aP, _port, FilesExplorer, Window*/
+/*global aP, _port, FilesExplorer, Window, FolderPicker*/
 
 "use strict"
 
@@ -9,6 +9,7 @@ var CC_GET_WATCHED_FOLDERS = aP.registerClientCall(102, "", "(su)")
 var CC_ADD_WATCH_FOLDER = aP.registerClientCall(103, "s", "(su)")
 var CC_REMOVE_WATCH_FOLDER = aP.registerClientCall(104, "s", "(su)")
 var CC_GET_QUOTA_USAGE = aP.registerClientCall(105, "", "uuu", [E_SERVER_IS_DOWN])
+var CC_GET_FOLDERS_IN_DIR = aP.registerClientCall(106, "s", "(s)")
 var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "busuf")
 
 var _conn = new aP("ws://localhost:"+_port)
@@ -107,11 +108,12 @@ function updateWatchedList(folders) {
 	span.textContent = "Add"
 	span.className = "button"
 	span.onclick = function () {
-		var folder = prompt("Input the folder name")
-		if (folder)
-			_conn.sendCall(CC_ADD_WATCH_FOLDER, folder, function (folders) {
-				updateWatchedList(folders)
-			})
+		FolderPicker.pick("Add folder", function (folder) {
+			if (folder)
+				_conn.sendCall(CC_ADD_WATCH_FOLDER, folder, function (folders) {
+					updateWatchedList(folders)
+				})
+		})
 	}
 	li.appendChild(span)
 	el.appendChild(li)

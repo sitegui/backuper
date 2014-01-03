@@ -34,8 +34,10 @@ clear()
 setInterval(clear, config.maxAge/10)
 
 function throwError(err) {
-	if (err)
+	if (err) {
+		console.trace()
 		throw err
+	}
 }
 
 // Save the data about the current chunk uploads
@@ -214,6 +216,7 @@ function startChunkUpload(uploadId, hash, answer, user) {
 			return answer(new aP.Exception(E_INVALID_SESSION))
 		chunkId = getRandomHexString()
 		_chunks[chunkId] = {hash: hash, upload: upload}
+		console.log("[server]", "startChunkUpload", chunkId)
 		answer(chunkId)
 	})
 }
@@ -224,6 +227,7 @@ function commitChunk(chunkId, answer, user) {
 	if (!chunk || chunk.upload.user != user.name)
 		return answer(new aP.Exception(E_INVALID_SESSION))
 	delete _chunks[chunkId]
+	console.log("[server]", "commitChunk", chunkId)
 	
 	// Check the data
 	var chunkPath = config.tempChunksFolder+chunkId

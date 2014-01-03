@@ -41,6 +41,9 @@ Throw: SERVER_IS_DOWN
 Return info about the current user quota (in bytes)
 softUse is the space taken by old versions (space that can be freed whenever needed)
 
+## 106: getFoldersInDir(dir: string) -> folders[]: string
+Like readdir, except that only return sub-directories
+
 # Server calls
 
 ## 100: uploaderProgress(bool connected, uint queueLength, string file, uint size, float progress) -> ()
