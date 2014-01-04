@@ -10,6 +10,7 @@ var CC_ADD_WATCH_FOLDER = aP.registerClientCall(103, "s", "(su)")
 var CC_REMOVE_WATCH_FOLDER = aP.registerClientCall(104, "s", "(su)")
 var CC_GET_QUOTA_USAGE = aP.registerClientCall(105, "", "uuu", [E_SERVER_IS_DOWN])
 var CC_GET_FOLDERS_IN_DIR = aP.registerClientCall(106, "s", "(s)")
+var CC_GET_DISK_UNITS = aP.registerClientCall(107, "", "(s)")
 var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "busuf")
 
 var _conn = new aP("ws://localhost:"+_port)
@@ -24,7 +25,6 @@ _conn.onopen = function () {
 		}
 	}
 	fullUpdate()
-	setInterval(fullUpdate, 5*60*1e3)
 }
 _conn.onclose = function () {
 	Window.open("Connection error").textContent = "Please refresh the page to try again"
@@ -36,6 +36,7 @@ window.onload = function () {
 }
 
 // Reload the tree, the quota and the folder list from the server
+// Auto-reload after 5min
 function fullUpdate() {
 	_conn.sendCall(CC_GET_TREE, null, function (str) {
 		FilesExplorer.setTree(JSON.parse(str))
@@ -46,7 +47,16 @@ function fullUpdate() {
 	_conn.sendCall(CC_GET_QUOTA_USAGE, null, function (info) {
 		updateQuota(info)
 	})
+	clearTimeout(fullUpdate.interval)
+	fullUpdate.interval = setTimeout(fullUpdate, 5*60e3)
+	get("reload-button").style.display = "none"
+	clearTimeout(fullUpdate.interval2)
+	fullUpdate.interval2 = setTimeout(function () {
+		get("reload-button").style.display = ""
+	}, 60e3)
 }
+fullUpdate.interval = null
+fullUpdate.interval2 = null
 
 function get(id) {
 	return document.getElementById(id)

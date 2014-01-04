@@ -44,6 +44,9 @@ softUse is the space taken by old versions (space that can be freed whenever nee
 ## 106: getFoldersInDir(dir: string) -> folders[]: string
 Like readdir, except that only return sub-directories
 
+## 107: getDiskUnits -> units[]: string
+Return the available units names, like "C:", "D:", etc
+
 # Server calls
 
 ## 100: uploaderProgress(bool connected, uint queueLength, string file, uint size, float progress) -> ()

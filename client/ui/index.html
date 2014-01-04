@@ -25,12 +25,12 @@
 		<h1>BackUper</h1>
 		
 		<div class="panels">
-			<div class="table-panel panel">
+			<div class="table-panel-1 panel">
 				<h2>Watched folders</h2>
 				<ul class="folders-list" id="watch-list"></ul>
 			</div>
 			
-			<div class="table-panel panel">
+			<div class="table-panel-2 panel">
 				<h2>Upload progress</h2>
 				<p id="upload-queue"></p>
 				<p id="upload-progress"></p>
@@ -40,7 +40,11 @@
 		
 		<div class="panel">
 			<h2>Files</h2>
-			<div id="files-path" class="path"></div>
+			<p>
+				<span class="button">Restore this folder</span>
+				<span id="reload-button"> - <span class="button" onclick="fullUpdate()">Reload</span></span>
+			</p>
+			<p id="files-path" class="path"></p>
 			<div class="items-stage" id="files-stage"></div>
 		</div>
 		

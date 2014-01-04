@@ -1,6 +1,6 @@
 // Use the Window module to present a UI to pick a folder in the file system
 
-/*global Window, _conn, CC_GET_FOLDERS_IN_DIR*/
+/*global Window, _conn, CC_GET_FOLDERS_IN_DIR, CC_GET_DISK_UNITS*/
 
 "use strict"
 
@@ -11,10 +11,15 @@ var FolderPicker = {}
 // folder will be null if the user canceled the process
 FolderPicker.pick = function (title, callback) {
 	var mainDiv = Window.open(title, FolderPicker._onclose)
-	var pathEl = document.createElement("div")
+	var pathEl = document.createElement("p")
 	var stageEl = document.createElement("div")
+	var optionsEl = document.createElement("p")
 	var doneButton = document.createElement("span")
-	mainDiv.appendChild(doneButton)
+	var showUnitsList = document.createElement("span")
+	optionsEl.appendChild(doneButton)
+	optionsEl.appendChild(document.createTextNode(" - "))
+	optionsEl.appendChild(showUnitsList)
+	mainDiv.appendChild(optionsEl)
 	mainDiv.appendChild(pathEl)
 	mainDiv.appendChild(stageEl)
 	
@@ -24,8 +29,16 @@ FolderPicker.pick = function (title, callback) {
 	doneButton.textContent = "Select current"
 	doneButton.onclick = function () {
 		FolderPicker._done = true
-		FolderPicker._callback("/"+FolderPicker._path.join("/"))
+		FolderPicker._callback(FolderPicker._getPathAsString())
 		Window.close()
+	}
+	showUnitsList.className = "button"
+	showUnitsList.textContent = "Show units list"
+	showUnitsList.onclick = function () {
+		FolderPicker._relative = false
+		FolderPicker._path = []
+		FolderPicker._updatePathEl()
+		FolderPicker._loadSubDirs()
 	}
 	
 	FolderPicker._callback = callback
@@ -33,6 +46,7 @@ FolderPicker.pick = function (title, callback) {
 	FolderPicker._pathEl = pathEl
 	FolderPicker._stageEl = stageEl
 	FolderPicker._done = false
+	FolderPicker._relative = true
 	
 	FolderPicker._updatePathEl()
 	FolderPicker._loadSubDirs()
@@ -43,6 +57,7 @@ Internals
 */
 
 FolderPicker._callback = null
+FolderPicker._relative = true
 FolderPicker._path = []
 FolderPicker._pathEl = null
 FolderPicker._stageEl = null
@@ -58,20 +73,36 @@ FolderPicker._onclose = function () {
 // Get the server to scan the current dir for subdirs
 FolderPicker._loadSubDirs = function () {
 	FolderPicker._stageEl.textContent = "Loading..."
-	_conn.sendCall(CC_GET_FOLDERS_IN_DIR, "/"+FolderPicker._path.join("/"), function (folderNames) {
-		FolderPicker._stageEl.textContent = ""
-		folderNames.forEach(function (folderName) {
-			var div = document.createElement("div")
-			div.className = "item button icon-folder"
-			
-			var span = document.createElement("span")
-			span.textContent = folderName
-			div.appendChild(span)
-			div.onclick = FolderPicker._getFolderOnClick(folderName)
-			FolderPicker._stageEl.appendChild(div)
+	if (!FolderPicker._relative && !FolderPicker._path.length)
+		_conn.sendCall(CC_GET_DISK_UNITS, null, function (units) {
+			FolderPicker._stageEl.textContent = ""
+			units.forEach(function (unit) {
+				var div = document.createElement("div")
+				div.className = "item button icon-folder"
+				
+				var span = document.createElement("span")
+				span.textContent = unit
+				div.appendChild(span)
+				div.onclick = FolderPicker._getFolderOnClick(unit)
+				FolderPicker._stageEl.appendChild(div)
+			})
+			FolderPicker._stageEl.parentNode.scrollTop = 0
 		})
-		FolderPicker._stageEl.parentNode.scrollTop = 0
-	})
+	else
+		_conn.sendCall(CC_GET_FOLDERS_IN_DIR, FolderPicker._getPathAsString(), function (folderNames) {
+			FolderPicker._stageEl.textContent = ""
+			folderNames.forEach(function (folderName) {
+				var div = document.createElement("div")
+				div.className = "item button icon-folder"
+				
+				var span = document.createElement("span")
+				span.textContent = folderName
+				div.appendChild(span)
+				div.onclick = FolderPicker._getFolderOnClick(folderName)
+				FolderPicker._stageEl.appendChild(div)
+			})
+			FolderPicker._stageEl.parentNode.scrollTop = 0
+		})
 }
 
 FolderPicker._getFolderOnClick = function (folderName) {
@@ -88,12 +119,14 @@ FolderPicker._updatePathEl = function () {
 	var path = FolderPicker._path
 	var pathEl = FolderPicker._pathEl
 	pathEl.innerHTML = ""
-		
-	span = document.createElement("span")
-	span.textContent = "/"
-	span.className = "button"
-	span.onclick = FolderPicker._getPathOnClick(path.length)
-	pathEl.appendChild(span)
+	
+	if (FolderPicker._relative) {
+		span = document.createElement("span")
+		span.textContent = "/"
+		span.className = "button"
+		span.onclick = FolderPicker._getPathOnClick(path.length)
+		pathEl.appendChild(span)
+	}
 	
 	for (i=0; i<path.length; i++) {
 		if (i) {
@@ -118,4 +151,10 @@ FolderPicker._getPathOnClick = function (n) {
 		FolderPicker._updatePathEl()
 		FolderPicker._loadSubDirs()
 	}
+}
+
+FolderPicker._getPathAsString = function () {
+	if (FolderPicker._relative)
+		return "/"+FolderPicker._path.join("/")
+	return FolderPicker._path.join("/")
 }

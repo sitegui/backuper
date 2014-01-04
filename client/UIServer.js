@@ -30,6 +30,7 @@ var CC_ADD_WATCH_FOLDER = aP.registerClientCall(103, "s", "(su)")
 var CC_REMOVE_WATCH_FOLDER = aP.registerClientCall(104, "s", "(su)")
 var CC_GET_QUOTA_USAGE = aP.registerClientCall(105, "", "uuu", [E_SERVER_IS_DOWN])
 var CC_GET_FOLDERS_IN_DIR = aP.registerClientCall(106, "s", "(s)")
+var CC_GET_DISK_UNITS = aP.registerClientCall(107, "", "(s)")
 var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "busuf")
 
 // Start the server
@@ -80,6 +81,8 @@ exports.init = function (Watcher, Uploader) {
 				getQuotaUsage(answer)
 			else if (type == CC_GET_FOLDERS_IN_DIR)
 				getFoldersInDir(data, answer)
+			else if (type == CC_GET_DISK_UNITS)
+				getDiskUnits(answer)
 		})
 		
 		_conns.push(conn)
@@ -181,6 +184,19 @@ function getFoldersInDir(dir, answer) {
 		
 		return answer(data)
 	})
+}
+
+function getDiskUnits(answer) {
+	var units = new aP.DataArray("s")
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(function (unit) {
+		try {
+			fs.readdirSync(unit+":\\")
+			// If no error occurred, then this disk exist
+			units.addData(new aP.Data().addString(unit+":"))
+		} catch(e) {
+		}
+	})
+	answer(units)
 }
 
 // Join the tree from the given sources

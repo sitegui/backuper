@@ -65,6 +65,7 @@ Watcher.addFolder = function (folder) {
 	newQueue[folder] = [""]
 	_folders = newFolders
 	_queue = newQueue
+	saveData()
 }
 
 // Remove a folder from the watching list
@@ -88,6 +89,7 @@ Watcher.removeFolder = function (folder) {
 		})
 		_tree.getFolder(path.dirname(folder)).removeItem(path.basename(folder))
 	}
+	saveData()
 }
 
 // Return an array with the absolute path of all folders beeing watched now
@@ -168,7 +170,6 @@ var runStep = function () {
 // Read the content of the given folder and queue new items
 var readFolderFromQueue = function (root, queue) {
 	var folder = path.join(root, queue.shift())
-	console.log("[Watcher]", folder)
 	var folderTree = _tree.getFolder(folder)
 	fs.readdir(folder, function (err, items) {
 		if (!err) {

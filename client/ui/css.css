@@ -63,9 +63,14 @@ h2 {
 	margin:1em 0;
 }
 
-.table-panel {
+.table-panel-1 {
 	display:table-cell;
-	width:50%;
+	width:40%;
+}
+
+.table-panel-2 {
+	display:table-cell;
+	width:60%;
 }
 
 .items-stage {
@@ -107,7 +112,7 @@ h2 {
 .item > span {
 	font-size:smaller;
 	max-height:50px;
-	max-width:120px;
+	max-width:110px;
 	overflow:hidden;
 	display:inline-block;
 	text-overflow:ellipsis;
@@ -174,7 +179,7 @@ Window
 
 .window-background {
 	position:fixed;
-	background-color:rgba(0, 0, 0, .1);
+	background-color:rgba(255, 255, 255, .25);
 	width:100%;
 	height:100%;
 	top:0;
@@ -183,11 +188,12 @@ Window
 
 .window {
 	position:absolute;
-	width:60%;
-	height:60%;
-	top:20%;
-	left:20%;
-	background-color:rgba(255, 255, 255, .9);
+	width:80%;
+	height:80%;
+	top:10%;
+	left:10%;
+	background-color:#F90;
+	border:5px rgba(0, 0, 0, .5) solid;
 }
 
 .window-close {
