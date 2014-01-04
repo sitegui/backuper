@@ -169,7 +169,7 @@ var runStep = function () {
 
 // Read the content of the given folder and queue new items
 var readFolderFromQueue = function (root, queue) {
-	var folder = path.join(root, queue.shift())
+	var folder = path.join(root, queue.pop())
 	var folderTree = _tree.getFolder(folder)
 	fs.readdir(folder, function (err, items) {
 		if (!err) {
