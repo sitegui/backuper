@@ -1,6 +1,6 @@
 // Control the files explorer
 
-/*global Window, bytes2str*/
+/*global Window, bytes2str, get, Restore, createNode, date2str*/
 
 "use strict"
 
@@ -13,6 +13,9 @@ FilesExplorer.init = function (pathEl, stageEl) {
 	FilesExplorer._pathEl = pathEl
 	FilesExplorer._stageEl = stageEl
 	FilesExplorer._updatePathEl()
+	get("restore-folder").onclick = function () {
+		Restore.restoreFolder(FilesExplorer._getCurrentTree())
+	}
 	stageEl.textContent = "Loading..."
 }
 
@@ -38,21 +41,17 @@ FilesExplorer._updatePathEl = function () {
 	var pathEl = FilesExplorer._pathEl
 	pathEl.innerHTML = ""
 		
-	span = document.createElement("span")
-	span.className = "button"
-	span.textContent = "/"
+	span = createNode("span", "button", "/")
 	span.onclick = FilesExplorer._getPathOnClick(path.length)
 	pathEl.appendChild(span)
 	
 	for (i=0; i<path.length; i++) {
 		if (i) {
-			span = document.createElement("span")
-			span.textContent = "/"
+			span = createNode("span", "/")
 			pathEl.appendChild(span)
 		}
 		
-		span = document.createElement("span")
-		span.textContent = path[i]
+		span = createNode("span", path[i])
 		if (i != path.length-1) {
 			span.className = "button"
 			span.onclick = FilesExplorer._getPathOnClick(path.length-i-1)
@@ -69,14 +68,19 @@ FilesExplorer._getPathOnClick = function (n) {
 	}
 }
 
-// Update the stage DOM element to reflect _path and _tree
-FilesExplorer._updateStageEl = function () {
-	// Get the folder
-	var i
-	var path = FilesExplorer._path
+// Return the current tree, based on FilesExplorer._path
+FilesExplorer._getCurrentTree = function () {
+	var path = FilesExplorer._path, i
 	var folder = FilesExplorer._tree
 	for (i=0; i<path.length; i++)
 		folder = folder.items[path[i]]
+	return folder
+}
+
+// Update the stage DOM element to reflect _path and _tree
+FilesExplorer._updateStageEl = function () {
+	// Get the folder
+	var folder = FilesExplorer._getCurrentTree()
 	
 	var stageEl = FilesExplorer._stageEl
 	var itemName
@@ -109,16 +113,13 @@ FilesExplorer._updateStageEl = function () {
 }
 
 FilesExplorer._createDivForItem = function (iconClass, item, itemName) {
-	var div = document.createElement("div")
+	var div = createNode("div", "item button", "")
 	
-	div.className = "item button"
 	div.classList.add(iconClass)
 	div.classList.add(item.uploader ? "icon-sync" : "icon-ok")
 	if (!item.watcher) div.classList.add("deleted")
 	
-	var span = document.createElement("span")
-	span.textContent = itemName
-	div.appendChild(span)
+	div.appendChild(createNode("span", itemName))
 	
 	return div
 }
@@ -136,18 +137,14 @@ FilesExplorer._getFileOnClick = function (fileName, item) {
 	return function () {
 		var info
 		
-		if (!item.server) {
-			info = document.createElement("p")
-			info.textContent = "Could not connect to the server to grab more information about this file"
-		} else if (!item.server.length) {
-			info = document.createElement("p")
-			info.textContent = "This file is not backed up yet"
-		} else {
-			info = document.createElement("ul")
+		if (!item.server)
+			info = createNode("p", "Could not connect to the server to grab more information about this file")
+		else if (!item.server.length)
+			info = createNode("p", "This file is not backed up yet")
+		else {
+			info = createNode("ul", "")
 			item.server.forEach(function (each) {
-				var li = document.createElement("li")
-				info.appendChild(li)
-				li.textContent = FilesExplorer._decodeDate(each.mtime)+" - "+bytes2str(each.size)
+				info.appendChild(createNode("li", FilesExplorer._decodeDate(each.mtime)+" - "+bytes2str(each.size)))
 			})
 		}
 		
@@ -194,7 +191,7 @@ FilesExplorer._getIconClass = function (fileName) {
 
 // Convert the number to a relative, human-readable date (string)
 FilesExplorer._decodeDate = function (time) {
-	var d, m, y, h, i, date = new Date, delta
+	var d, m, y, h, i, date = new Date
 	
 	i = time%60
 	time = Math.floor(time/60)
@@ -209,17 +206,5 @@ FilesExplorer._decodeDate = function (time) {
 	date.setUTCFullYear(1990+y, m, d)
 	date.setUTCHours(h, i, 0, 0)
 	
-	delta = Date.now()-date.getTime()
-	
-	if (delta < 2*60*1e3)
-		return "just now"
-	if (delta < 2*60*60*1e3)
-		return Math.round(delta/(60*1e3))+" minutes ago"
-	if (delta < 2*24*60*60*1e3)
-		return Math.round(delta/(60*60*1e3))+" hours ago"
-	if (delta < 2*30.4375*24*60*60*1e3)
-		return Math.round(delta/(24*60*60*1e3))+" days ago"
-	if (delta < 2*365.25*24*60*60*1e3)
-		return Math.round(delta/(30.4375*24*60*60*1e3))+" months ago"
-	return Math.round(delta/(365.25*24*60*60*1e3))+" years ago"
+	return date2str(date)
 }

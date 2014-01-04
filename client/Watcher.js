@@ -65,6 +65,7 @@ Watcher.addFolder = function (folder) {
 	newQueue[folder] = [""]
 	_folders = newFolders
 	_queue = newQueue
+	_lastCicleTime = 0
 	saveData()
 }
 
@@ -89,6 +90,7 @@ Watcher.removeFolder = function (folder) {
 		})
 		_tree.getFolder(path.dirname(folder)).removeItem(path.basename(folder))
 	}
+	_lastCicleTime = 0
 	saveData()
 }
 
@@ -99,15 +101,15 @@ Watcher.getFolders = function () {
 	return _folders.slice(0)
 }
 
-// Return an array where every element is an object with the format:
-// {name: string, files: uint}
+// Return {folders[]: {name: string, files: uint}, lastCicleTime: uint}
 Watcher.getFoldersInfo = function () {
 	if (!_started)
 		throw new Error("Watcher hasn't started")
-	return _folders.map(function (folder) {
+	var folders = _folders.map(function (folder) {
 		var files = _tree.getFolder(folder).getAllFiles().length
 		return {name: folder, files: files}
 	})
+	return {folders: folders, lastCicleTime: _lastCicleTime}
 }
 
 // Return an copy of the internal tree

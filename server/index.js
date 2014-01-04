@@ -353,6 +353,7 @@ function getFilesInfo(answer, user) {
 	var fields = {size: "$size", mtime: "$mtime", id: "$localName"}
 	_db.collection("files").aggregate([
 		{$match: query},
+		{$sort: {version: 1}},
 		{$group: {_id: "$path", versions: {$push: fields}}}
 	], function (err, files) {
 		throwError(err)

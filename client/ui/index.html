@@ -15,6 +15,7 @@
 		<script src="Window.js"></script>
 		<script src="FilesExplorer.js"></script>
 		<script src="FolderPicker.js"></script>
+		<script src="Restore.js"></script>
 		
 		<script src="port.js"></script>
 		<script src="js.js"></script>
@@ -28,6 +29,7 @@
 			<div class="table-panel-1 panel">
 				<h2>Watched folders</h2>
 				<ul class="folders-list" id="watch-list"></ul>
+				<p>Last scan completed <span id="last-cicle"></span></p>
 			</div>
 			
 			<div class="table-panel-2 panel">
@@ -41,7 +43,7 @@
 		<div class="panel">
 			<h2>Files</h2>
 			<p>
-				<span class="button">Restore this folder</span>
+				<span class="button" id="restore-folder">Restore this folder</span>
 				<span id="reload-button"> - <span class="button" onclick="fullUpdate()">Reload</span></span>
 			</p>
 			<p id="files-path" class="path"></p>

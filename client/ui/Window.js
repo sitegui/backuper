@@ -29,11 +29,9 @@ Window.open = function (title, onclose) {
 Window.close = function () {
 	document.getElementById("window-background").style.display = "none"
 	document.getElementById("window-content").innerHTML = ""
-	if (Window._onclose) {
-		Window._onclose()
-		Window._onclose = null
-	}
 	Window._closed = true
+	if (Window._onclose)
+		Window._onclose()
 }
 
 /*

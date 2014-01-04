@@ -5,9 +5,9 @@
 var E_SERVER_IS_DOWN = aP.registerException(100)
 var CC_GET_UPLOADER_STATUS = aP.registerClientCall(100, "", "busuf")
 var CC_GET_TREE = aP.registerClientCall(101, "", "s")
-var CC_GET_WATCHED_FOLDERS = aP.registerClientCall(102, "", "(su)")
-var CC_ADD_WATCH_FOLDER = aP.registerClientCall(103, "s", "(su)")
-var CC_REMOVE_WATCH_FOLDER = aP.registerClientCall(104, "s", "(su)")
+var CC_GET_WATCHED_FOLDERS = aP.registerClientCall(102, "", "(su)u")
+var CC_ADD_WATCH_FOLDER = aP.registerClientCall(103, "s", "(su)u")
+var CC_REMOVE_WATCH_FOLDER = aP.registerClientCall(104, "s", "(su)u")
 var CC_GET_QUOTA_USAGE = aP.registerClientCall(105, "", "uuu", [E_SERVER_IS_DOWN])
 var CC_GET_FOLDERS_IN_DIR = aP.registerClientCall(106, "s", "(s)")
 var CC_GET_DISK_UNITS = aP.registerClientCall(107, "", "(s)")
@@ -41,8 +41,8 @@ function fullUpdate() {
 	_conn.sendCall(CC_GET_TREE, null, function (str) {
 		FilesExplorer.setTree(JSON.parse(str))
 	})
-	_conn.sendCall(CC_GET_WATCHED_FOLDERS, null, function (folders) {
-		updateWatchedList(folders)
+	_conn.sendCall(CC_GET_WATCHED_FOLDERS, null, function (data) {
+		updateWatchedList(data[0], data[1])
 	})
 	_conn.sendCall(CC_GET_QUOTA_USAGE, null, function (info) {
 		updateQuota(info)
@@ -77,7 +77,7 @@ function updateUploaderStatus(connected, queueLength, file, size, progress) {
 		progress = connected ? Math.floor(100*progress)+"%" : "paused"
 		progressEl.textContent = "Uploading "
 		progressEl.appendChild(getSpanForPath(file))
-		progressEl.appendChild(document.createTextNode(" ("+progress+")"))
+		progressEl.appendChild(createNode(" ("+progress+")"))
 	}
 }
 
@@ -89,58 +89,55 @@ function updateQuota(info) {
 }
 
 // Update the list of watched folders
-function updateWatchedList(folders) {
+function updateWatchedList(folders, lastCicleTime) {
 	var el = get("watch-list")
 	el.innerHTML = ""
 	
 	// Append the folder names list
 	folders.forEach(function (folder) {
-		var li = document.createElement("li")
+		var li = createNode("li", "")
 		li.appendChild(getSpanForPath(folder[0]))
-		li.appendChild(document.createTextNode(" ("+folder[1]+" files) - "))
-		var span = document.createElement("span")
-		span.textContent = "Remove"
+		li.appendChild(createNode(" ("+folder[1]+" files) - "))
+		var span = createNode("span", "button", "Remove")
 		span.onclick = function () {
-			_conn.sendCall(CC_REMOVE_WATCH_FOLDER, folder[0], function (folders) {
-				updateWatchedList(folders)
+			_conn.sendCall(CC_REMOVE_WATCH_FOLDER, folder[0], function (data) {
+				updateWatchedList(data[0], data[1])
 			})
 			span.onclick = null
 		}
-		span.className = "button"
 		li.appendChild(span)
 		
 		el.appendChild(li)
 	})
 	
 	// Put the add button
-	var li = document.createElement("li")
-	var span = document.createElement("span")
-	span.textContent = "Add"
-	span.className = "button"
+	var li = createNode("li", "")
+	var span = createNode("span", "button", "Add")
 	span.onclick = function () {
 		FolderPicker.pick("Add folder", function (folder) {
 			if (folder)
-				_conn.sendCall(CC_ADD_WATCH_FOLDER, folder, function (folders) {
-					updateWatchedList(folders)
+				_conn.sendCall(CC_ADD_WATCH_FOLDER, folder, function (data) {
+					updateWatchedList(data[0], data[1])
 				})
 		})
 	}
 	li.appendChild(span)
 	el.appendChild(li)
+	
+	// Update last cicle information
+	get("last-cicle").textContent = lastCicleTime ? date2str(new Date(lastCicleTime)) : "never"
 }
 
 // Return an SPAN element to decorate a given path (string)
 function getSpanForPath(path) {
 	var parts = path.split(/[\/\\]/)
 	
-	var innerSpan = document.createElement("span")
+	var innerSpan = createNode("span", parts.pop())
 	innerSpan.style.fontSize = "larger"
-	innerSpan.textContent = parts.pop()
 	
-	var outerSpan = document.createElement("span")
+	var outerSpan = createNode("span", parts.join("/")+"/")
 	outerSpan.style.fontSize = "smaller"
 	outerSpan.style.fontStyle = "italic"
-	outerSpan.textContent = parts.join("/")+"/"
 	outerSpan.appendChild(innerSpan)
 	
 	return outerSpan
@@ -159,4 +156,39 @@ function bytes2str(bytes) {
 	if (Mi < 1e3)
 		return Mi.toPrecision(3)+" MiB"
 	return Gi.toPrecision(3)+" GiB"
+}
+
+// Create and return a new HTML element
+// Has three uses:
+// create(textNodeContent)
+// create(tagName, textContent)
+// create(tagName, tagClass, textContent)
+function createNode(a, b, c) {
+	if (arguments.length == 1)
+		return document.createTextNode(a)
+	var el = document.createElement(a)
+	if (arguments.length == 2)
+		el.textContent = b
+	else {
+		el.className = b
+		el.textContent = c
+	}
+	return el
+}
+
+// Convert the given Date object to a relative, human-readable string
+function date2str(date) {
+	var delta = Date.now()-date.getTime()
+	
+	if (delta < 2*60*1e3)
+		return "just now"
+	if (delta < 2*60*60*1e3)
+		return Math.round(delta/(60*1e3))+" minutes ago"
+	if (delta < 2*24*60*60*1e3)
+		return Math.round(delta/(60*60*1e3))+" hours ago"
+	if (delta < 2*30.4375*24*60*60*1e3)
+		return Math.round(delta/(24*60*60*1e3))+" days ago"
+	if (delta < 2*365.25*24*60*60*1e3)
+		return Math.round(delta/(30.4375*24*60*60*1e3))+" months ago"
+	return Math.round(delta/(365.25*24*60*60*1e3))+" years ago"
 }
