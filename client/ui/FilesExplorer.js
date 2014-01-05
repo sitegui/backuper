@@ -29,6 +29,25 @@ FilesExplorer.setTree = function (tree) {
 Internals
 */
 
+FilesExplorer._getPercentage = function (tree) {
+	var total = 0
+	var done = 0
+	var aux = function (tree) {
+		var itemName, item
+		for (itemName in tree.items) {
+			item = tree.items[itemName]
+			if ("items" in item)
+				aux(item)
+			else {
+				total++
+				if (!item.uploader) done++
+			}
+		}
+	}
+	aux(tree)
+	return done+"/"+total
+}
+
 FilesExplorer._tree = null
 FilesExplorer._pathEl = null
 FilesExplorer._stageEl = null
@@ -99,7 +118,7 @@ FilesExplorer._updateStageEl = function () {
 	
 	folders.forEach(function (folderName) {
 		var item = folder.items[folderName]
-		var div = FilesExplorer._createDivForItem("icon-folder", item, folderName)
+		var div = FilesExplorer._createDivForItem("icon-folder", item, "("+FilesExplorer._getPercentage(item)+") "+folderName)
 		div.onclick = FilesExplorer._getFolderOnClick(folderName)
 		stageEl.appendChild(div)
 	})
