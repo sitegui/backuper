@@ -4,6 +4,7 @@
 module.exports = {
 	port: 8001,
 	uploadPort: 8002,
+	downloadPort: 8003,
 	mongoURL: "mongodb://localhost/backuper",
 	// The folder to store all the data (should end with path.sep)
 	dataFolder: "E:\\backuper\\",

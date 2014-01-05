@@ -38,25 +38,24 @@ window.onload = function () {
 // Reload the tree, the quota and the folder list from the server
 // Auto-reload after 5min
 function fullUpdate() {
+	get("reload-button").style.display = "none"
 	_conn.sendCall(CC_GET_TREE, null, function (str) {
 		FilesExplorer.setTree(JSON.parse(str))
+		get("reload-button").style.display = ""
 	})
+	
 	_conn.sendCall(CC_GET_WATCHED_FOLDERS, null, function (data) {
 		updateWatchedList(data[0], data[1])
 	})
-	_conn.sendCall(CC_GET_QUOTA_USAGE, null, function (info) {
-		updateQuota(info)
+	
+	_conn.sendCall(CC_GET_QUOTA_USAGE, null, function (data) {
+		updateQuota(data[0], data[1], data[2])
 	})
+	
 	clearTimeout(fullUpdate.interval)
 	fullUpdate.interval = setTimeout(fullUpdate, 5*60e3)
-	get("reload-button").style.display = "none"
-	clearTimeout(fullUpdate.interval2)
-	fullUpdate.interval2 = setTimeout(function () {
-		get("reload-button").style.display = ""
-	}, 60e3)
 }
 fullUpdate.interval = null
-fullUpdate.interval2 = null
 
 function get(id) {
 	return document.getElementById(id)
@@ -83,9 +82,16 @@ function updateUploaderStatus(connected, queueLength, file, size, progress) {
 
 // Update the quota display
 // info is an Array [uint total, uint free, uint softUse]
-function updateQuota(info) {
-	var el = get("upload-quota")
-	el.textContent = bytes2str(info[1])+" free ("+bytes2str(info[0])+" total)"
+function updateQuota(total, free, softUse) {
+	var hardEl = get("quota-used-hard")
+	var softEl = get("quota-used-soft")
+	var freeEl = get("quota-free")
+	hardEl.textContent = bytes2str(total-free-softUse)
+	softEl.textContent = bytes2str(softUse)
+	freeEl.textContent = bytes2str(free)
+	hardEl.style.width = 100*(total-free-softUse)/total+"%"
+	softEl.style.width = 100*softUse/total+"%"
+	freeEl.style.width = 100*free/total+"%"
 }
 
 // Update the list of watched folders

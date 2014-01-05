@@ -10,8 +10,7 @@ var Tree = require("./Tree.js")
 // Start the watcher
 // It'll awake from the saved state (or start from scratch if it doesn't exist)
 // config is an object with the keys "dumpFile", "foldersPerStep", "timeBetweenSteps", "ignore"
-// This object emits three events:
-// start(), right after the watcher has done starting
+// This object emits two events:
 // filechange(file), when a file change is detected (file is an absolute path)
 // fileremove(file), when detects a file was deleted (file is an absolute path)
 Watcher.start = function (config) {
@@ -38,7 +37,6 @@ Watcher.start = function (config) {
 				throw new Error("Invalid format")
 		}
 		_started = true
-		Watcher.emit("start")
 		runStep()
 	})
 }

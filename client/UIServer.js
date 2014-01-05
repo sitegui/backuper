@@ -18,7 +18,7 @@ var types = {
 	".txt": "text/plain"
 }
 
-var _watcher, _uploader, _aPServer
+var _watcher, _uploader, _aPServer, _downloader
 var _conns = [] // current ws connections
 
 // Set-up protocol calls
@@ -35,9 +35,10 @@ var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "busuf")
 
 // Start the server
 // Watcher and Uploader should be the other two loaded modules
-exports.init = function (Watcher, Uploader) {
+exports.init = function (Watcher, Uploader, Downloader) {
 	_watcher = Watcher
 	_uploader = Uploader
+	_downloader = Downloader
 	
 	http.createServer(function (req, res) {
 		// Get the target file path

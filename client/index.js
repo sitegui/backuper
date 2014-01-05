@@ -6,12 +6,14 @@ var config = require("./config.js")
 var fs = require("fs")
 var aP = require("async-protocol")
 var ui = require("./UIServer.js")
+var Downloader = require("./Downloader.js")
 
 // Load the keys
 try {
 	var keys = fs.readFileSync("keys")
-	config.uploader.loginKey = new aP.Token(keys.slice(0, 16))
+	config.connect.loginKey = new aP.Token(keys.slice(0, 16))
 	config.uploader.aesKey = keys.slice(16, 32)
+	config.downloader.aesKey = keys.slice(16, 32)
 	config.uploader.aesIV = keys.slice(32, 48)
 } catch (e) {
 	throw new Error("Keys not found. Execute generateKeys.js first")
@@ -31,6 +33,7 @@ Uploader.on("start", function () {
 		Uploader.queueFileRemove(file)
 	})
 })
+Downloader.start(config.downloader)
 
 // Set-up the user interface server
-ui.init(Watcher, Uploader)
+ui.init(Watcher, Uploader, Downloader)

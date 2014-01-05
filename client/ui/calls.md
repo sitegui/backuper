@@ -47,6 +47,10 @@ Like readdir, except that only return sub-directories
 ## 107: getDiskUnits -> units[]: string
 Return the available units names, like "C:", "D:", etc
 
+## 108: startRestore(destination: string, files: string)
+Start a new restoration job
+files is a JSON-encoded tree (the same format accepted by Tree.js node-module)
+
 # Server calls
 
 ## 100: uploaderProgress(bool connected, uint queueLength, string file, uint size, float progress) -> ()

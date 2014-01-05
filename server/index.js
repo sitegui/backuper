@@ -15,6 +15,7 @@ var E_INVALID_SESSION = aP.registerException(3)
 var E_LOGIN_ERROR = aP.registerException(4)
 var E_WRONG_SIZE = aP.registerException(5)
 var E_CORRUPTED_DATA = aP.registerException(6)
+var E_NOT_FOUND = aP.registerException(7)
 
 var CC_LOGIN = aP.registerClientCall(1, "st", "", [E_LOGIN_ERROR])
 var CC_START_UPLOAD = aP.registerClientCall(2, "BiuB", "s", [E_NOT_LOGGED_IN, E_OUT_OF_SPACE])
@@ -25,6 +26,7 @@ var CC_COMMIT_UPLOAD = aP.registerClientCall(6, "s", "", [E_NOT_LOGGED_IN, E_INV
 var CC_REMOVE_FILE = aP.registerClientCall(7, "B", "", [E_NOT_LOGGED_IN])
 var CC_GET_FILES_INFO = aP.registerClientCall(8, "", "(B(uis))", [E_NOT_LOGGED_IN])
 var CC_GET_QUOTA_USAGE = aP.registerClientCall(9, "", "uuu")
+var CC_REQUEST_FILE_DOWNLOAD = aP.registerClientCall(10, "s", "tuB", [E_NOT_FOUND])
 
 var CHUNK_SIZE = 1*1024*1024 // 1 MiB
 
@@ -43,6 +45,10 @@ function throwError(err) {
 // Save the data about the current chunk uploads
 // The keys are the session ids (hex-encoded) and the values are objets like {hash: Buffer, upload: <the-bd-upload-doc>}
 var _chunks = {}
+
+// Save the tokens given for download operations
+// Each key is a hex-encoded token and each value is the file relative path to config.dataFolder
+var _downloads = {}
 
 // Create the server
 net.createServer(function (conn) {
@@ -70,6 +76,8 @@ net.createServer(function (conn) {
 				getFilesInfo(answer, conn.user)
 			else if (type == CC_GET_QUOTA_USAGE)
 				getQuotaUsage(answer, conn.user)
+			else if (type == CC_REQUEST_FILE_DOWNLOAD)
+				requestFileDownload(data, answer, conn.user)
 		}
 	})
 }).listen(config.port)
@@ -77,7 +85,6 @@ net.createServer(function (conn) {
 // Create the server for the upload port
 net.createServer({allowHalfOpen: true}, function (conn) {
 	var buffer = new Buffer(0)
-	var stream
 	var onreadable = function () {
 		var data = conn.read(), id
 		if (!data) return
@@ -87,25 +94,45 @@ net.createServer({allowHalfOpen: true}, function (conn) {
 		if (buffer.length >= 32) {
 			id = buffer.slice(0, 32).toString()
 			if (!id.match(/^[0-9a-f]{32}$/))
-				return conn.close()
+				return conn.end()
 			
 			// Dump all bytes after the 32º to a temp file
-			stream = fs.createWriteStream(config.tempChunksFolder+id)
+			var stream = fs.createWriteStream(config.tempChunksFolder+id)
 			stream.write(buffer.slice(32))
 			conn.pipe(stream)
 			stream.once("finish", function () {
-				console.log("[server]", "stream", "finish")
 				conn.end(".") // warn everything was received
 			})
-			conn.once("end", function () {
-				console.log("[server]", "conn", "end")
-			})
+			conn.removeListener("readable", onreadable)
 		}
-		conn.removeListener("readable", onreadable)
 	}
 	conn.on("readable", onreadable)
 	conn.once("error", function () {})
 }).listen(config.uploadPort)
+
+// Create the server for the download port
+net.createServer(function (conn) {
+	var buffer = new Buffer(0)
+	var onreadable = function () {
+		var data = conn.read(), localName, id
+		if (!data) return
+		
+		// Extract the first 16 bytes as the download token
+		buffer = Buffer.concat([buffer, data], buffer.length+data.length)
+		if (buffer.length == 16) {
+			id = buffer.toString("hex")
+			localName = _downloads[id]
+			if (!localName)
+				return conn.end()
+			delete _downloads[id]
+			var stream = fs.createReadStream(config.dataFolder+localName)
+			stream.pipe(conn)
+			conn.removeListener("readable", onreadable)
+		}
+	}
+	conn.on("readable", onreadable)
+	conn.once("error", function () {})
+}).listen(config.downloadPort)
 
 // Create the db connection
 var _db = null
@@ -115,6 +142,8 @@ MongoClient.connect(config.mongoURL, function (err, db) {
 	
 	// Set-up the database
 	db.collection("users").ensureIndex({name: 1}, {unique: true}, throwError)
+	db.collection("files").ensureIndex({user: 1}, throwError)
+	db.collection("files").ensureIndex({user: 1}, throwError)
 })
 
 // Try to login the user
@@ -124,7 +153,6 @@ function login(userName, password, answer, conn) {
 		if (!user)
 			answer(new aP.Exception(E_LOGIN_ERROR))
 		else {
-			console.log("[server] %s logged in", user.name)
 			answer()
 			conn.user = user
 		}
@@ -223,7 +251,6 @@ function startChunkUpload(uploadId, hash, answer, user) {
 			return answer(new aP.Exception(E_INVALID_SESSION))
 		chunkId = getRandomHexString()
 		_chunks[chunkId] = {hash: hash, upload: upload}
-		console.log("[server]", "startChunkUpload", chunkId)
 		answer(chunkId)
 	})
 }
@@ -234,7 +261,6 @@ function commitChunk(chunkId, answer, user) {
 	if (!chunk || chunk.upload.user != user.name)
 		return answer(new aP.Exception(E_INVALID_SESSION))
 	delete _chunks[chunkId]
-	console.log("[server]", "commitChunk", chunkId)
 	
 	// Check the data
 	var chunkPath = config.tempChunksFolder+chunkId
@@ -294,8 +320,6 @@ function cancelUpload(uploadId, answer, user) {
 			
 			// Possibly remove the partial commit from the data folder
 			fs.unlink(config.dataFolder+user.localName+path.sep+uploadId, function () {})
-			
-			console.log("[server] upload %s canceled", uploadId)
 		}
 		answer()
 	})
@@ -340,10 +364,7 @@ function commitUpload(uploadId, answer, user) {
 }
 
 function removeFile(filePath, answer, user) {
-	_db.collection("files").update({path: filePath, user: user.name}, {$set: {old: true}}, throwError)
-	
-	console.log("[server] file removed: %s", filePath.toString("hex"))
-	
+	_db.collection("files").update({path: filePath, user: user.name, old: false}, {$set: {old: true}}, throwError)
 	answer()
 }
 
@@ -407,6 +428,27 @@ function getQuotaUsage(answer, user) {
 			// Ready to return
 			var free = Math.max(total-hard-soft, 0)
 			answer(new aP.Data().addUint(total).addUint(free).addUint(soft))
+		})
+	})
+}
+
+// (downloadToken: Token, size: uint, originalHash: Buffer)
+function requestFileDownload(uploadId, answer, user) {
+	var query = {user: user.name, localName: uploadId}
+	
+	// Get file hash
+	_db.collection("files").findOne(query, function (err, file) {
+		throwError(err)
+		if (!file)
+			return answer(E_NOT_FOUND)
+		
+		// Get file size
+		fs.stat(config.dataFolder+user.localName+path.sep+file.localName, function (err, stat) {
+			throwError(err)
+			
+			var token = new aP.Token
+			_downloads[token.buffer.toString("hex")] = user.localName+path.sep+file.localName
+			answer(new aP.Data().addToken(token).addUint(stat.size).addBuffer(file.originalHash.buffer))
 		})
 	})
 }

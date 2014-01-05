@@ -11,6 +11,7 @@ var path = require("path")
 var crypto = require("crypto")
 var aP = require("async-protocol")
 var Tree = require("./Tree.js")
+var connect = require("./connect.js")
 
 var UPDATE = 0
 var REMOVE = 1
@@ -20,11 +21,8 @@ var CHUNK_SIZE = 1*1024*1024 // 1 MiB
 var E_NOT_LOGGED_IN = aP.registerException(1)
 var E_OUT_OF_SPACE = aP.registerException(2)
 var E_INVALID_SESSION = aP.registerException(3)
-var E_LOGIN_ERROR = aP.registerException(4)
 var E_WRONG_SIZE = aP.registerException(5)
 var E_CORRUPTED_DATA = aP.registerException(6)
-
-var CC_LOGIN = aP.registerClientCall(1, "st", "", [E_LOGIN_ERROR])
 var CC_START_UPLOAD = aP.registerClientCall(2, "BiuB", "s", [E_NOT_LOGGED_IN, E_OUT_OF_SPACE])
 var CC_START_CHUNK_UPLOAD = aP.registerClientCall(3, "sB", "s", [E_NOT_LOGGED_IN, E_INVALID_SESSION])
 var CC_COMMIT_CHUNK = aP.registerClientCall(4, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_CORRUPTED_DATA])
@@ -35,7 +33,7 @@ var CC_GET_FILES_INFO = aP.registerClientCall(8, "", "(B(uis))", [E_NOT_LOGGED_I
 var CC_GET_QUOTA_USAGE = aP.registerClientCall(9, "", "uuu")
 
 // Start the upload
-// config is an object with the keys "dumpFile", "host", "port", "uploadPort", "userName", "reconnectionTime", "loginKey", "aesKey", "aesIV", "maxUploadSpeed"
+// config is an object with the keys "dumpFile", "uploadPort", "reconnectionTime", "aesKey", "aesIV", "maxUploadSpeed"
 // This object emits update() whenever the internal status change (check getStatus())
 Uploader.start = function (config) {
 	_config = config
@@ -190,28 +188,6 @@ function kickIn() {
 			})
 			stepUploadSequence()
 		}
-	})
-}
-
-// Try to connect with the backuper server
-// callback(conn) isn't optional and will be called after the login
-// If something went wrong, conn will be null
-function connect(callback) {
-	var conn = net.connect({port: _config.port, host: _config.host})
-	conn.once("error", function () {
-		callback(null)
-	})
-	conn.once("connect", function () {
-		conn.removeAllListeners()
-		conn = new aP(conn, true)
-		var data = new aP.Data().addString(_config.userName).addToken(_config.loginKey)
-		conn.sendCall(CC_LOGIN, data, function () {
-			callback(conn)
-		}, function () {
-			console.log("[Uploader] login failed")
-			callback(null)
-			conn.close()
-		})
 	})
 }
 

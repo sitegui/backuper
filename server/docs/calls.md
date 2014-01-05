@@ -6,6 +6,7 @@
 ## LOGIN_ERROR (4)
 ## WRONG_SIZE (5)
 ## CORRUPTED_DATA (6)
+## NOT_FOUND (7)
 
 # Client calls
 
@@ -49,3 +50,8 @@ Return the info about all files for the current user
 ## 9: getQuotaUsage() -> (uint total, uint free, uint softUse)
 Return info about the current user quota (in bytes)
 softUse is the space taken by old versions (space that can be freed whenever needed)
+
+## 10: requestFileDownload(uploadId: string) -> (downloadToken: Token, size: uint, originalHash: Buffer)
+Throws: NOT_LOGGED_IN, NOT_FOUND
+To continue the download, the client should open another connection to downloadPort and send the token
+

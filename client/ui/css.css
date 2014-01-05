@@ -223,3 +223,34 @@ Window
 	overflow:hidden;
 	text-overflow:ellipsis;
 }
+
+/*
+Quota
+*/
+.quota {
+	border:3px black solid;
+	width:100%;
+	position:relative;
+	height:30px;
+}
+
+.quota-used-hard, .quota-used-soft, .quota-free {
+	display:inline-block;
+	text-align:center;
+	overflow:hidden;
+	height:24px;
+	line-height:24px;
+	white-space:nowrap;
+}
+
+.quota-used-hard {
+	background-color:rgba(0, 0, 0, .75);
+	color:#EEE;
+}
+
+.quota-used-soft {
+	background-color:rgba(0, 0, 0, .25);
+}
+
+.quota-free {
+}

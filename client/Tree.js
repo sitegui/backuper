@@ -1,4 +1,8 @@
-"use strict";
+// Represent a Tree that can be serialized into JSON and back
+// Each item of the tree has a name
+// Each leaf has a name and can be associated with an string, number, array or bool value
+
+"use strict"
 
 var path = require("path")
 
