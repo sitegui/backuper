@@ -97,11 +97,17 @@ Tree.prototype.setFileInfo  = function (file, info) {
 	this.items[file] = info
 }
 
-// Check whether the given tree is empty
+// Check whether the given tree is empty (without files)
 Tree.prototype.isEmpty = function () {
-	var item
-	for (item in this.items)
-		return false
+	var itemName, item
+	for (itemName in this.items) {
+		item = this.items[itemName]
+		if (item instanceof Tree) {
+			if (!item.isEmpty())
+				return false
+		} else
+			return false
+	}
 	return true
 }
 

@@ -20,6 +20,7 @@ try {
 }
 
 // Set-up uploader
+config.uploader.host = config.downloader.host = config.connect.host
 Uploader.start(config.uploader)
 Uploader.on("start", function () {
 	// Set-up the watcher

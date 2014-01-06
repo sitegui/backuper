@@ -9,6 +9,7 @@ var parseUrl = require("url").parse
 var fs = require("fs")
 var aP = require("async-protocol")
 var net = require("net")
+var Tree = require("./Tree.js")
 
 var types = {
 	".html": "text/html",
@@ -31,6 +32,7 @@ var CC_REMOVE_WATCH_FOLDER = aP.registerClientCall(104, "s", "(su)u")
 var CC_GET_QUOTA_USAGE = aP.registerClientCall(105, "", "uuu", [E_SERVER_IS_DOWN])
 var CC_GET_FOLDERS_IN_DIR = aP.registerClientCall(106, "s", "(s)")
 var CC_GET_DISK_UNITS = aP.registerClientCall(107, "", "(s)")
+var CC_CREATE_DOWNLOAD_TASK = aP.registerClientCall(108, "ss")
 var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "busuf")
 
 // Start the server
@@ -84,6 +86,8 @@ exports.init = function (Watcher, Uploader, Downloader) {
 				getFoldersInDir(data, answer)
 			else if (type == CC_GET_DISK_UNITS)
 				getDiskUnits(answer)
+			else if (type == CC_CREATE_DOWNLOAD_TASK)
+				createDownloadTask(data[0], data[1], answer)
 		})
 		
 		_conns.push(conn)
@@ -198,6 +202,11 @@ function getDiskUnits(answer) {
 		}
 	})
 	answer(units)
+}
+
+function createDownloadTask(files, destination, answer) {
+	_downloader.createTask(new Tree(JSON.parse(files)), destination)
+	answer()
 }
 
 // Join the tree from the given sources

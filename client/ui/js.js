@@ -11,6 +11,7 @@ var CC_REMOVE_WATCH_FOLDER = aP.registerClientCall(104, "s", "(su)u")
 var CC_GET_QUOTA_USAGE = aP.registerClientCall(105, "", "uuu", [E_SERVER_IS_DOWN])
 var CC_GET_FOLDERS_IN_DIR = aP.registerClientCall(106, "s", "(s)")
 var CC_GET_DISK_UNITS = aP.registerClientCall(107, "", "(s)")
+var CC_CREATE_DOWNLOAD_TASK = aP.registerClientCall(108, "ss")
 var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "busuf")
 
 var _conn = new aP("ws://localhost:"+_port)
@@ -48,8 +49,12 @@ function fullUpdate() {
 		updateWatchedList(data[0], data[1])
 	})
 	
+	get("quota").innerHTML = "<p>Loading...</p>"
+	get("quota").className = ""
 	_conn.sendCall(CC_GET_QUOTA_USAGE, null, function (data) {
 		updateQuota(data[0], data[1], data[2])
+	}, function () {
+		get("quota").innerHTML = "<p>Unable to reach the server</p>"
 	})
 	
 	clearTimeout(fullUpdate.interval)
@@ -83,12 +88,15 @@ function updateUploaderStatus(connected, queueLength, file, size, progress) {
 // Update the quota display
 // info is an Array [uint total, uint free, uint softUse]
 function updateQuota(total, free, softUse) {
-	var hardEl = get("quota-used-hard")
-	var softEl = get("quota-used-soft")
-	var freeEl = get("quota-free")
-	hardEl.textContent = bytes2str(total-free-softUse)
-	softEl.textContent = bytes2str(softUse)
-	freeEl.textContent = bytes2str(free)
+	var quotaEl = get("quota")
+	quotaEl.innerHTML = ""
+	get("quota").className = "quota"
+	var hardEl = createNode("div", "quota-used-hard", bytes2str(total-free-softUse))
+	var softEl = createNode("div", "quota-used-soft", bytes2str(softUse))
+	var freeEl = createNode("div", "quota-free", bytes2str(free))
+	quotaEl.appendChild(hardEl)
+	quotaEl.appendChild(softEl)
+	quotaEl.appendChild(freeEl)
 	hardEl.style.width = 100*(total-free-softUse)/total+"%"
 	softEl.style.width = 100*softUse/total+"%"
 	freeEl.style.width = 100*free/total+"%"

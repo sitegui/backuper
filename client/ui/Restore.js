@@ -1,6 +1,6 @@
 // Control the UI for the restore process
 
-/*global Window, createNode, bytes2str, FolderPicker*/
+/*global Window, createNode, FolderPicker, CC_CREATE_DOWNLOAD_TASK, _conn, aP*/
 
 "use strict"
 
@@ -19,7 +19,7 @@ Restore.restoreFolder = function (tree) {
 			item = tree.items[itemName]
 			if ("items" in item) {
 				finalSubTree = Object.create(null)
-				finalTree[itemName] = finalSubTree
+				finalTree["/"+itemName] = finalSubTree
 				if (!walkTree(item, path+itemName+"/", finalSubTree))
 					return false
 			} else if (!item.server)
@@ -64,17 +64,19 @@ Restore._pickFolder = function (filesCount, totalSize, maxLength, finalTree) {
 					Restore._pickFolder(filesCount, totalSize, maxLength, finalTree)
 				}
 				goOn.onclick = function () {
-					Restore._commit(filesCount, totalSize, maxLength, finalTree)
+					Restore._commit(filesCount, totalSize, maxLength, finalTree, destination)
 				}
 			} else
 				// Continue
-				Restore._commit(filesCount, totalSize, maxLength, finalTree)
+				Restore._commit(filesCount, totalSize, maxLength, finalTree, destination)
 		}
 	})
 }
 
 // Commit the job to the node client and show a status UI
-Restore._commit = function (filesCount, totalSize, maxLength, finalTree) {
+Restore._commit = function (filesCount, totalSize, maxLength, finalTree, destination) {
 	// TODO
-	Window.open("Restoring").appendChild(createNode("p", JSON.stringify(finalTree)))
+	var data = new aP.Data().addString(JSON.stringify(finalTree)).addString(destination)
+	_conn.sendCall(CC_CREATE_DOWNLOAD_TASK, data)
+	//Window.open("Restoring").appendChild(createNode("p", JSON.stringify(finalTree)))
 }

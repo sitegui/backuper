@@ -17,31 +17,33 @@ module.exports = {
 	uploader: {
 		// File in which the current state will be saved
 		dumpFile: "uploader.dump",
+		// host: "" -> got from connect.host
 		uploadPort: 8002,
 		// Time between reconnection attempts (in ms)
 		reconnectionTime: 1*60*60*1e3,
 		// The limit for the average upload speed (in kbps)
-		maxUploadSpeed: 100,
-		aesKey: null, // Read from file "keys"
-		aesIV: null // Read from file "keys"
+		maxUploadSpeed: 100
+		// aesKey: null -> Read from file "keys"
+		// aesIV: null -> Read from file "keys"
 	},
 	// Downloader module configs
 	downloader: {
 		// File in which the current state will be saved
 		dumpFile: "downloader.dump",
+		// host: "" -> got from connect.host
 		downloadPort: 8003,
 		// Time between reconnection attempts (in ms)
 		reconnectionTime: 5*60*1e3,
 		// Temp folder to store downloads in progress (should end with path.sep)
-		tempFolder: "temp\\",
-		aesKey: null // Read from file "keys"
+		tempFolder: "temp\\"
+		// aesKey: null -> Read from file "keys"
 	},
 	// Server connection configuration
 	connect: {
 		host: "localhost",
 		port: 8001,
-		userName: "Guilherme Souza",
-		loginKey: null // Read from file "keys"
+		userName: "Guilherme Souza"
+		// loginKey: null -> Read from file "keys"
 	},
 	// UIServer module configs
 	ui: {

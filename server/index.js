@@ -440,7 +440,7 @@ function requestFileDownload(uploadId, answer, user) {
 	_db.collection("files").findOne(query, function (err, file) {
 		throwError(err)
 		if (!file)
-			return answer(E_NOT_FOUND)
+			return answer(new aP.Exception(E_NOT_FOUND))
 		
 		// Get file size
 		fs.stat(config.dataFolder+user.localName+path.sep+file.localName, function (err, stat) {
