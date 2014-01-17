@@ -9,24 +9,15 @@ var crypto = require("crypto")
 var path = require("path")
 
 // Async-protocol definitions
-var E_NOT_LOGGED_IN = aP.registerException(1)
-var E_OUT_OF_SPACE = aP.registerException(2)
-var E_INVALID_SESSION = aP.registerException(3)
-var E_LOGIN_ERROR = aP.registerException(4)
-var E_WRONG_SIZE = aP.registerException(5)
-var E_CORRUPTED_DATA = aP.registerException(6)
-var E_NOT_FOUND = aP.registerException(7)
+var cntxt = new aP
 
-var CC_LOGIN = aP.registerClientCall(1, "st", "", [E_LOGIN_ERROR])
-var CC_START_UPLOAD = aP.registerClientCall(2, "BiuB", "s", [E_NOT_LOGGED_IN, E_OUT_OF_SPACE])
-var CC_START_CHUNK_UPLOAD = aP.registerClientCall(3, "sB", "s", [E_NOT_LOGGED_IN, E_INVALID_SESSION])
-var CC_COMMIT_CHUNK = aP.registerClientCall(4, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_CORRUPTED_DATA])
-var CC_CANCEL_UPLOAD = aP.registerClientCall(5, "s", "", [E_NOT_LOGGED_IN])
-var CC_COMMIT_UPLOAD = aP.registerClientCall(6, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_WRONG_SIZE])
-var CC_REMOVE_FILE = aP.registerClientCall(7, "B", "", [E_NOT_LOGGED_IN])
-var CC_GET_FILES_INFO = aP.registerClientCall(8, "", "(B(uis))", [E_NOT_LOGGED_IN])
-var CC_GET_QUOTA_USAGE = aP.registerClientCall(9, "", "uuu")
-var CC_REQUEST_FILE_DOWNLOAD = aP.registerClientCall(10, "s", "tuB", [E_NOT_FOUND])
+cntxt.registerException("#1 notLoggedIn")
+cntxt.registerException("#2 outOfSpace")
+cntxt.registerException("#3 invalidSession")
+cntxt.registerException("#4 loginError")
+cntxt.registerException("#5 wrongSize")
+cntxt.registerException("#6 corruptedData")
+cntxt.registerException("#7 notFound")
 
 var CHUNK_SIZE = 1*1024*1024 // 1 MiB
 
@@ -51,36 +42,8 @@ var _chunks = {}
 var _downloads = {}
 
 // Create the server
-net.createServer(function (conn) {
-	conn = new aP(conn)
-	conn.user = null
-	conn.on("call", function (type, data, answer) {
-		if (type == CC_LOGIN)
-			login(data[0], data[1], answer, conn)
-		else {
-			if (!conn.user)
-				answer(new aP.Exception(E_NOT_LOGGED_IN))
-			else if (type == CC_START_UPLOAD)
-				startUpload(data[0], data[1], data[2], data[3], answer, conn.user)
-			else if (type == CC_START_CHUNK_UPLOAD)
-				startChunkUpload(data[0], data[1], answer, conn.user)
-			else if (type == CC_COMMIT_CHUNK)
-				commitChunk(data, answer, conn.user)
-			else if (type == CC_CANCEL_UPLOAD)
-				cancelUpload(data, answer, conn.user)
-			else if (type == CC_COMMIT_UPLOAD)
-				commitUpload(data, answer, conn.user)
-			else if (type == CC_REMOVE_FILE)
-				removeFile(data, answer, conn.user)
-			else if (type == CC_GET_FILES_INFO)
-				getFilesInfo(answer, conn.user)
-			else if (type == CC_GET_QUOTA_USAGE)
-				getQuotaUsage(answer, conn.user)
-			else if (type == CC_REQUEST_FILE_DOWNLOAD)
-				requestFileDownload(data, answer, conn.user)
-		}
-	})
-}).listen(config.port)
+var server = net.createServer().listen(config.port)
+cntxt.wrapServer(server)
 
 // Create the server for the upload port
 net.createServer({allowHalfOpen: true}, function (conn) {
@@ -120,7 +83,7 @@ net.createServer(function (conn) {
 		// Extract the first 16 bytes as the download token
 		buffer = Buffer.concat([buffer, data], buffer.length+data.length)
 		if (buffer.length == 16) {
-			id = buffer.toString("hex")
+			id = new aP.Token(buffer)
 			localName = _downloads[id]
 			if (!localName)
 				return conn.end()
@@ -147,31 +110,37 @@ MongoClient.connect(config.mongoURL, function (err, db) {
 })
 
 // Try to login the user
-function login(userName, password, answer, conn) {
-	_db.collection("users").findOne({name: userName, password: hashPassword(password)}, function (err, user) {
+cntxt.registerClientCall("#1 login(userName: string, password: token)", function (args, answer) {
+	var query = {name: args.userName, password: hashPassword(args.password)}
+	var that = this
+	_db.collection("users").findOne(query, function (err, user) {
 		throwError(err)
 		if (!user)
-			answer(new aP.Exception(E_LOGIN_ERROR))
+			answer(new aP.Exception("loginError"))
 		else {
 			answer()
-			conn.user = user
+			that.user = user
 		}
 	})
-}
+})
 
-function startUpload(filePath, mtime, size, originalHash, answer, user) {
-	freeSpace(size, user, function (sucess) {
+cntxt.registerClientCall("#2 startUpload(filePath: Buffer, mtime: int, size: uint, originalHash: Buffer) -> uploadId: string", function (args, answer) {
+	var user = this.user
+	if (!user)
+		return answer(new aP.Exception("notLoggedIn"))
+	
+	freeSpace(args.size, user, function (sucess) {
 		if (!sucess)
-			return answer(new aP.Exception(E_OUT_OF_SPACE))
+			return answer(new aP.Exception("outOfSpace"))
 		
 		var data = {
 			localName: getRandomHexString(),
 			user: user.name,
-			filePath: filePath,
-			mtime: mtime,
-			size: size,
+			filePath: args.filePath,
+			mtime: args.mtime,
+			size: args.size,
 			receivedChunks: 0,
-			originalHash: originalHash,
+			originalHash: args.originalHash,
 			timestamp: Date.now()
 		}
 		_db.collection("uploads").insert(data, function (err) {
@@ -183,12 +152,12 @@ function startUpload(filePath, mtime, size, originalHash, answer, user) {
 				fs.close(fd, function (err) {
 					throwError(err)
 					console.log("[server] upload started with id %s", data.localName)
-					answer(data.localName)
+					answer({uploadId: data.localName})
 				})
 			})
 		})
 	})
-}
+})
 
 // Try to allocate the amount of space needed
 // Delete old files if necessary
@@ -243,27 +212,35 @@ function freeSpace(size, user, callback) {
 	})
 }
 
-function startChunkUpload(uploadId, hash, answer, user) {
-	_db.collection("uploads").findOne({localName: uploadId, user: user.name}, function (err, upload) {
+cntxt.registerClientCall("#3 startChunkUpload(uploadId: string, hash: Buffer) -> chunkId: string", function (args, answer) {
+	var user = this.user
+	if (!user)
+		return answer(new aP.Exception("notLoggedIn"))
+	
+	_db.collection("uploads").findOne({localName: args.uploadId, user: user.name}, function (err, upload) {
 		var chunkId
 		throwError(err)
 		if (!upload)
-			return answer(new aP.Exception(E_INVALID_SESSION))
+			return answer(new aP.Exception("invalidSession"))
 		chunkId = getRandomHexString()
-		_chunks[chunkId] = {hash: hash, upload: upload}
-		answer(chunkId)
+		_chunks[chunkId] = {hash: args.hash, upload: upload}
+		answer({chunkId: chunkId})
 	})
-}
+})
 
-function commitChunk(chunkId, answer, user) {
+cntxt.registerClientCall("#4 commitChunk(id: string)", function (args, answer) {
+	var user = this.user
+	if (!user)
+		return answer(new aP.Exception("notLoggedIn"))
+	
 	// Get chunk info
-	var chunk = _chunks[chunkId]
+	var chunk = _chunks[args.id]
 	if (!chunk || chunk.upload.user != user.name)
-		return answer(new aP.Exception(E_INVALID_SESSION))
-	delete _chunks[chunkId]
+		return answer(new aP.Exception("invalidSession"))
+	delete _chunks[args.id]
 	
 	// Check the data
-	var chunkPath = config.tempChunksFolder+chunkId
+	var chunkPath = config.tempChunksFolder+args.id
 	var uploadTempPath = config.tempFolder+chunk.upload.localName
 	var uploadFinalPath = config.dataFolder+user.localName+path.sep+chunk.upload.localName
 	fs.readFile(chunkPath, function (err, data) {
@@ -274,11 +251,11 @@ function commitChunk(chunkId, answer, user) {
 		hash.end(data)
 		hash = hash.read()
 		if (hash.toString("hex") != chunk.hash.toString("hex"))
-			return answer(new aP.Exception(E_CORRUPTED_DATA))
+			return answer(new aP.Exception("corruptedData"))
 		
 		// Check the size
 		if (data.length > 16+CHUNK_SIZE+16)
-			return answer(new aP.Exception(E_CORRUPTED_DATA))
+			return answer(new aP.Exception("corruptedData"))
 		
 		// Append to the upload session file
 		var append = function () {
@@ -306,34 +283,42 @@ function commitChunk(chunkId, answer, user) {
 		else
 			append()
 	})
-}
+})
 
-function cancelUpload(uploadId, answer, user) {
-	_db.collection("uploads").findOne({localName: uploadId, user: user.name}, function (err, upload) {
+cntxt.registerClientCall("#5 cancelUpload(id: string)", function (args, answer) {
+	var user = this.user
+	if (!user)
+		return answer(new aP.Exception("notLoggedIn"))
+	
+	_db.collection("uploads").findOne({localName: args.id, user: user.name}, function (err, upload) {
 		throwError(err)
 		if (upload) {
 			// Remove the file
 			fs.unlink(config.tempFolder+upload.localName, function () {})
 			
 			// Remove from the database
-			_db.collection("uploads").remove({localName: uploadId, user: user.name}, throwError)
+			_db.collection("uploads").remove({localName: args.id, user: user.name}, throwError)
 			
 			// Possibly remove the partial commit from the data folder
-			fs.unlink(config.dataFolder+user.localName+path.sep+uploadId, function () {})
+			fs.unlink(config.dataFolder+user.localName+path.sep+args.id, function () {})
 		}
 		answer()
 	})
-}
+})
 
-function commitUpload(uploadId, answer, user) {
+cntxt.registerClientCall("#6 commitUpload(id: string)", function (args, answer) {
+	var user = this.user
+	if (!user)
+		return answer(new aP.Exception("notLoggedIn"))
+	
 	// Check the session in the database
-	_db.collection("uploads").findAndRemove({localName: uploadId, user: user.name}, [], function (err, upload) {
+	_db.collection("uploads").findAndRemove({localName: args.id, user: user.name}, [], function (err, upload) {
 		throwError(err)
-		if (!upload) return answer(new aP.Exception(E_INVALID_SESSION))
+		if (!upload) return answer(new aP.Exception("invalidSession"))
 		
 		// Check the size
 		if (upload.receivedChunks != Math.ceil(upload.size/CHUNK_SIZE))
-			return answer(new aP.Exception(E_WRONG_SIZE))
+			return answer(new aP.Exception("wrongSize"))
 		
 		// Move the file
 		var uploadTempPath = config.tempFolder+upload.localName
@@ -361,15 +346,24 @@ function commitUpload(uploadId, answer, user) {
 			console.log("[server] upload %s completed", upload.localName)
 		})
 	})
-}
+})
 
-function removeFile(filePath, answer, user) {
-	_db.collection("files").update({path: filePath, user: user.name, old: false}, {$set: {old: true}}, throwError)
-	answer()
-}
+cntxt.registerClientCall("#7 removeFile(filePath: Buffer)", function (args, answer) {
+	var user = this.user
+	if (!user)
+		return answer(new aP.Exception("notLoggedIn"))
+	
+	_db.collection("files").update({path: args.filePath, user: user.name, old: false}, {$set: {old: true}}, function (err) {
+		throwError(err)
+		answer()
+	})
+})
 
-// ((Buffer path, (uint size, int mtime, string id)[] versions)[] files)
-function getFilesInfo(answer, user) {
+cntxt.registerClientCall("#8 getFilesInfo -> files[]: (path: Buffer, versions[]: (size: uint, mtime: int, id: string))", function (args, answer) {
+	var user = this.user
+	if (!user)
+		return answer(new aP.Exception("notLoggedIn"))
+	
 	var query = {user: user.name}
 	var fields = {size: "$size", mtime: "$mtime", id: "$localName"}
 	_db.collection("files").aggregate([
@@ -378,31 +372,18 @@ function getFilesInfo(answer, user) {
 		{$group: {_id: "$path", versions: {$push: fields}}}
 	], function (err, files) {
 		throwError(err)
-		
-		// Convert to the format (B(uis))
-		var array = new aP.DataArray("B(uis)")
 		files.forEach(function (file) {
-			var data = new aP.Data
-			data.addBuffer(file._id.buffer)
-			
-			var versions = new aP.DataArray("uis")
-			file.versions.forEach(function (version) {
-				var data = new aP.Data
-				data.addUint(version.size)
-				data.addInt(version.mtime)
-				data.addString(version.id)
-				versions.addData(data)
-			})
-			data.addDataArray(versions)
-			array.addData(data)
+			file.path = file._id.buffer
 		})
-		
-		answer(array)
+		answer({files: files})
 	})
-}
+})
 
-// (uint total, uint free, uint softUse)
-function getQuotaUsage(answer, user) {
+cntxt.registerClientCall("#9 getQuotaUsage -> total: uint, free: uint, softUse: uint", function (args, answer) {
+	var user = this.user
+	if (!user)
+		return answer(new aP.Exception("notLoggedIn"))
+	
 	// Get the total space
 	var query = {name: user.name}
 	_db.collection("users").findOne(query, function (err, userData) {
@@ -427,37 +408,40 @@ function getQuotaUsage(answer, user) {
 			
 			// Ready to return
 			var free = Math.max(total-hard-soft, 0)
-			answer(new aP.Data().addUint(total).addUint(free).addUint(soft))
+			answer({total: total, free: free, softUse: soft})
 		})
 	})
-}
+})
 
-// (downloadToken: Token, size: uint, originalHash: Buffer)
-function requestFileDownload(uploadId, answer, user) {
-	var query = {user: user.name, localName: uploadId}
+cntxt.registerClientCall("#10 requestFileDownload(uploadId: string) -> downloadToken: token, size: uint, originalHash: Buffer", function (args, answer) {
+	var user = this.user
+	if (!user)
+		return answer(new aP.Exception("notLoggedIn"))
+	
+	var query = {user: user.name, localName: args.uploadId}
 	
 	// Get file hash
 	_db.collection("files").findOne(query, function (err, file) {
 		throwError(err)
 		if (!file)
-			return answer(new aP.Exception(E_NOT_FOUND))
+			return answer(new aP.Exception("notFound"))
 		
 		// Get file size
 		fs.stat(config.dataFolder+user.localName+path.sep+file.localName, function (err, stat) {
 			throwError(err)
 			
 			var token = new aP.Token
-			_downloads[token.buffer.toString("hex")] = user.localName+path.sep+file.localName
-			answer(new aP.Data().addToken(token).addUint(stat.size).addBuffer(file.originalHash.buffer))
+			_downloads[token] = user.localName+path.sep+file.localName
+			answer({downloadToken: token, size: stat.size, originalHash: file.originalHash.buffer})
 		})
 	})
-}
+})
 
 // Return the (Buffer) sha1 salted hash of the given (aP.Token) password
 function hashPassword(pass) {
 	var hash = crypto.createHash("sha1")
 	hash.write("sitegui-backuper")
-	hash.end(pass.buffer)
+	hash.end(pass._buffer)
 	return hash.read()
 }
 
