@@ -1,6 +1,6 @@
 // Use the Window module to present a UI to pick a folder in the file system
 
-/*global Window, _conn, CC_GET_FOLDERS_IN_DIR, CC_GET_DISK_UNITS, createNode*/
+/*global Window, _conn, createNode*/
 
 "use strict"
 
@@ -61,9 +61,9 @@ FolderPicker._stageEl = null
 FolderPicker._loadSubDirs = function () {
 	FolderPicker._stageEl.textContent = "Loading..."
 	if (!FolderPicker._relative && !FolderPicker._path.length)
-		_conn.sendCall(CC_GET_DISK_UNITS, null, function (units) {
+		_conn.call("getDiskUnits", null, function (err, result) {
 			FolderPicker._stageEl.textContent = ""
-			units.forEach(function (unit) {
+			result.units.forEach(function (unit) {
 				var div = createNode("div", "item button icon-folder", "")
 				
 				div.appendChild(createNode("span", unit))
@@ -73,9 +73,9 @@ FolderPicker._loadSubDirs = function () {
 			FolderPicker._stageEl.parentNode.scrollTop = 0
 		})
 	else
-		_conn.sendCall(CC_GET_FOLDERS_IN_DIR, FolderPicker._getPathAsString(), function (folderNames) {
+		_conn.call("getFoldersInDir", {dir: FolderPicker._getPathAsString()}, function (err, result) {
 			FolderPicker._stageEl.textContent = ""
-			folderNames.forEach(function (folderName) {
+			result.folders.forEach(function (folderName) {
 				var div = createNode("div", "item button icon-folder", "")
 				
 				div.appendChild(createNode("span", folderName))

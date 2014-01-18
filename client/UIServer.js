@@ -2,13 +2,19 @@
 
 // Manage the server for the web interface
 
+var aP = require("async-protocol")
+
+var cntxt = new aP
+
+cntxt.registerException("#1 serverIsDown")
+
+cntxt.registerServerCall("#1 uploaderProgress(connected: boolean, queueLength: uint, file: string, size: uint, progress: float)")
+
 var config = require("./config.js").ui
 var http = require("http")
 var path = require("path")
 var parseUrl = require("url").parse
 var fs = require("fs")
-var aP = require("async-protocol")
-var net = require("net")
 var Tree = require("./Tree.js")
 
 var types = {
@@ -19,21 +25,8 @@ var types = {
 	".txt": "text/plain"
 }
 
-var _watcher, _uploader, _aPServer, _downloader
+var _watcher, _uploader, _downloader
 var _conns = [] // current ws connections
-
-// Set-up protocol calls
-var E_SERVER_IS_DOWN = aP.registerException(100)
-var CC_GET_UPLOADER_STATUS = aP.registerClientCall(100, "", "busuf")
-var CC_GET_TREE = aP.registerClientCall(101, "", "s")
-var CC_GET_WATCHED_FOLDERS = aP.registerClientCall(102, "", "(su)u")
-var CC_ADD_WATCH_FOLDER = aP.registerClientCall(103, "s", "(su)u")
-var CC_REMOVE_WATCH_FOLDER = aP.registerClientCall(104, "s", "(su)u")
-var CC_GET_QUOTA_USAGE = aP.registerClientCall(105, "", "uuu", [E_SERVER_IS_DOWN])
-var CC_GET_FOLDERS_IN_DIR = aP.registerClientCall(106, "s", "(s)")
-var CC_GET_DISK_UNITS = aP.registerClientCall(107, "", "(s)")
-var CC_CREATE_DOWNLOAD_TASK = aP.registerClientCall(108, "ss")
-var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "busuf")
 
 // Start the server
 // Watcher and Uploader should be the other two loaded modules
@@ -66,42 +59,13 @@ exports.init = function (Watcher, Uploader, Downloader) {
 	}).listen(config.port)
 	
 	// Set-up the async-protocol server
-	_aPServer = net.createServer(function (conn) {
-		conn = new aP(conn)
-		conn.on("error", function () {})
-		conn.on("call", function (type, data, answer) {
-			if (type == CC_GET_UPLOADER_STATUS)
-				getUploaderStatus(answer)
-			else if (type == CC_GET_TREE)
-				getTree(answer)
-			else if (type == CC_GET_WATCHED_FOLDERS)
-				getWatchedFolders(answer)
-			else if (type == CC_ADD_WATCH_FOLDER)
-				addWatchFolder(data, answer)
-			else if (type == CC_REMOVE_WATCH_FOLDER)
-				removeWatchFolder(data, answer)
-			else if (type == CC_GET_QUOTA_USAGE)
-				getQuotaUsage(answer)
-			else if (type == CC_GET_FOLDERS_IN_DIR)
-				getFoldersInDir(data, answer)
-			else if (type == CC_GET_DISK_UNITS)
-				getDiskUnits(answer)
-			else if (type == CC_CREATE_DOWNLOAD_TASK)
-				createDownloadTask(data[0], data[1], answer)
-		})
-		
+	cntxt.createWSServer(function (conn) {
 		_conns.push(conn)
 		conn.once("close", function () {
 			var pos = _conns.indexOf(conn)
 			if (pos != -1)
 				_conns.splice(pos, 1)
 		})
-	})
-	_aPServer.listen(0)
-	
-	// Set-up the webSocket gate
-	aP.createGate(function () {
-		return net.connect(_aPServer.address().port)
 	}).listen(config.wsPort)
 	
 	// Expose the used port to JS
@@ -112,31 +76,19 @@ exports.init = function (Watcher, Uploader, Downloader) {
 	// Set the listener for Uploader activity
 	_uploader.on("update", function () {
 		if (_conns.length) {
-			var data = uploaderStatus2Data()
+			var data = _uploader.getStatus()
 			_conns.forEach(function (conn) {
-				conn.sendCall(SC_UPLOADER_PROGRESS, data)
+				conn.call("uploaderProgress", data)
 			})
 		}
 	})
 }
 
-function getUploaderStatus(answer) {
-	answer(uploaderStatus2Data())
-}
+cntxt.registerClientCall("#1 getUploaderStatus -> connected: boolean, queueLength: uint, file: string, size: uint, progress: float", function (args, answer) {
+	answer(_uploader.getStatus())
+})
 
-// Return the upload status in a aP.Data object
-function uploaderStatus2Data() {
-	var status = _uploader.getStatus()
-	var data = new aP.Data
-	data.addBoolean(status.connected)
-	data.addUint(status.queueLength)
-	data.addString(status.file)
-	data.addUint(status.size)
-	data.addFloat(status.progress)
-	return data
-}
-
-function getTree(answer) {
+cntxt.registerClientCall("#2 getTree -> tree: string", function (args, answer) {
 	// First fetch the server tree
 	_uploader.getServerTree(function (serverTree) {
 		// Fetch other trees
@@ -144,70 +96,66 @@ function getTree(answer) {
 		var uploaderTree = _uploader.getTree()
 		
 		// Mix and return
-		answer(JSON.stringify(mixTree(serverTree, watcherTree, uploaderTree)))
+		var tree = mixTree(serverTree, watcherTree, uploaderTree)
+		answer({tree: JSON.stringify(tree)})
 	})
-}
+})
 
-function getWatchedFolders(answer) {
-	var info = _watcher.getFoldersInfo()
-	var folders = new aP.DataArray("su")
-	info.folders.forEach(function (folder) {
-		folders.addData(new aP.Data().addString(folder.name).addUint(folder.files))
-	})
-	answer(new aP.Data().addDataArray(folders).addUint(info.lastCicleTime))
-}
+cntxt.registerClientCall("#3 getWatchedFolders -> folders[]: (name: string, files: uint), lastCicleTime: uint", function (args, answer) {
+	answer(_watcher.getFoldersInfo())
+})
 
-function addWatchFolder(folder, answer) {
-	_watcher.addFolder(folder)
-	getWatchedFolders(answer)
-}
+cntxt.registerClientCall("#4 addWatchFolder(folder: string) -> folders[]: (name: string, files: uint), lastCicleTime: uint", function (args, answer) {
+	_watcher.addFolder(args.folder)
+	answer(_watcher.getFoldersInfo())
+})
 
-function removeWatchFolder(folder, answer) {
-	_watcher.removeFolder(folder)
-	getWatchedFolders(answer)
-}
+cntxt.registerClientCall("#5 removeWatchFolder(folder: string) -> folders[]: (name: string, files: uint), lastCicleTime: uint", function (args, answer) {
+	_watcher.removeFolder(args.folder)
+	answer(_watcher.getFoldersInfo())
+})
 
-function getQuotaUsage(answer) {
+cntxt.registerClientCall("#6 getQuotaUsage -> total: uint, free: uint, softUse: uint", function (args, answer) {
 	_uploader.getQuotaUsage(function (result) {
 		if (!result)
-			return answer(new aP.Exception(E_SERVER_IS_DOWN))
-		answer(new aP.Data().addUint(result.total).addUint(result.free).addUint(result.softUse))
+			return answer(new aP.Exception("serverIsDown"))
+		answer(result)
 	})
-}
+})
 
-function getFoldersInDir(dir, answer) {
-	fs.readdir(dir, function (err, items) {
-		var data = new aP.DataArray("s")
+cntxt.registerClientCall("#7 getFoldersInDir(dir: string) -> folders[]: string", function (args, answer) {
+	fs.readdir(args.dir, function (err, items) {
+		var folders = []
 		
 		if (!err)
 			items.forEach(function (item) {
 				try {
-					if (fs.statSync(path.join(dir, item)).isDirectory())
-						data.addData(new aP.Data().addString(item))
+					if (fs.statSync(path.join(args.dir, item)).isDirectory())
+						folders.push(item)
 				} catch (e) {}
 			})
 		
-		return answer(data)
+		return answer({folders: folders})
 	})
-}
+})
 
-function getDiskUnits(answer) {
-	var units = new aP.DataArray("s")
+cntxt.registerClientCall("#8 getDiskUnits -> units[]: string", function (args, answer) {
+	var units = []
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(function (unit) {
 		try {
 			fs.readdirSync(unit+":\\")
 			// If no error occurred, then this disk exist
-			units.addData(new aP.Data().addString(unit+":"))
+			units.push(unit+":")
 		} catch(e) {
 		}
 	})
-	answer(units)
-}
+	answer({units: units})
+})
 
-function createDownloadTask(files, destination, answer) {
-	_downloader.createTask(new Tree(JSON.parse(files)), destination)
+cntxt.registerClientCall("#9 createDownloadTask(files: string, destination: string)", function (args, answer) {
+	_downloader.createTask(new Tree(JSON.parse(args.files)), args.destination)
 	answer()
-}
+})
 
 // Join the tree from the given sources
 // Send undefined to ignore any of them

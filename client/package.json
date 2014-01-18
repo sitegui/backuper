@@ -11,7 +11,7 @@
   "keywords": [
   ],
   "dependencies": {
-    "async-protocol": "0.1.x"
+    "async-protocol": "0.2.x"
   },
   "license": "MIT",
   "engines": {

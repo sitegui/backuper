@@ -10,11 +10,7 @@ var path = require("path")
 var fs = require("fs")
 var Tree = require("./Tree.js")
 var connect = require("./connect.js")
-var aP = require("async-protocol")
 var crypto = require("crypto")
-
-var E_NOT_FOUND = aP.registerException(7)
-var CC_REQUEST_FILE_DOWNLOAD = aP.registerClientCall(10, "s", "tuB", [E_NOT_FOUND])
 
 // Start the restore
 // It'll awake from the saved state (or start from scratch if it doesn't exist)
@@ -68,7 +64,7 @@ Downloader.start = function (config) {
 // destination is a string
 // Return the task id, a string to refer to this task afterwards
 Downloader.createTask = function (files, destination) {
-	var id = new aP.Token().buffer.toString("hex")
+	var id = getRandomHexString()
 	_tasks[id] = {destination: destination, files: files, errors: []}
 	_hasWork = true
 	reconnect()
@@ -138,33 +134,33 @@ function download(uploadId) {
 	// Get metadata
 	if (!_conn)
 		return
-	_conn.sendCall(CC_REQUEST_FILE_DOWNLOAD, uploadId, function (data) {
-		var token = data[0]
-		var size = data[1]
-		var originalHash = data[2]
+	_conn.call("requestFileDownload", {uploadId: uploadId}, function (err, result) {
+		// downloadToken: token, size: uint, originalHash: Buffer
+		if (err) {
+			if (err.name === "notFound")
+				// Ignore this and move on
+				pushError("file not found in your backup")
+			else
+				this.close()
+			return
+		}
 		
 		// Create the aux connection and wait for the file
 		var conn = net.connect({port: _config.downloadPort, host: _config.host})
 		var stream = fs.createWriteStream(_config.tempFolder+uploadId)
 		conn.once("connect", function () {
-			conn.write(token.buffer)
+			conn.write(result.downloadToken._buffer)
 			conn.pipe(stream)
 		})
 		conn.once("error", function () {})
 		stream.once("finish", function () {
-			if (conn.bytesRead != size) {
+			if (conn.bytesRead != result.size) {
 				// Give up for now
 				if (_conn) _conn.close()
 				return
 			}
-			decrypt(uploadId, originalHash)
+			decrypt(uploadId, result.originalHash)
 		})
-	}, function (type) {
-		if (type == E_NOT_FOUND)
-			// Ignore this and move on
-			pushError("file not found in your backup")
-		else if (_conn)
-			_conn.close()
 	})
 }
 
@@ -296,3 +292,11 @@ function saveData() {
 	}
 }
 saveData.counter = 0
+
+// Return a random 16-byte key encoded in hex
+function getRandomHexString() {
+	var i, str = "", chars = "0123456789abcdef"
+	for (i=0; i<32; i++)
+		str += chars[Math.floor(Math.random()*16)]
+	return str
+}

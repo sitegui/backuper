@@ -1,4 +1,4 @@
-"use strict";
+"use strict"
 
 // Control all the upload activity
 
@@ -9,28 +9,12 @@ var fs = require("fs")
 var net = require("net")
 var path = require("path")
 var crypto = require("crypto")
-var aP = require("async-protocol")
 var Tree = require("./Tree.js")
 var connect = require("./connect.js")
 
 var UPDATE = 0
 var REMOVE = 1
 var CHUNK_SIZE = 1*1024*1024 // 1 MiB
-
-// Async-protocol definitions
-var E_NOT_LOGGED_IN = aP.registerException(1)
-var E_OUT_OF_SPACE = aP.registerException(2)
-var E_INVALID_SESSION = aP.registerException(3)
-var E_WRONG_SIZE = aP.registerException(5)
-var E_CORRUPTED_DATA = aP.registerException(6)
-var CC_START_UPLOAD = aP.registerClientCall(2, "BiuB", "s", [E_NOT_LOGGED_IN, E_OUT_OF_SPACE])
-var CC_START_CHUNK_UPLOAD = aP.registerClientCall(3, "sB", "s", [E_NOT_LOGGED_IN, E_INVALID_SESSION])
-var CC_COMMIT_CHUNK = aP.registerClientCall(4, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_CORRUPTED_DATA])
-var CC_CANCEL_UPLOAD = aP.registerClientCall(5, "s", "", [E_NOT_LOGGED_IN])
-var CC_COMMIT_UPLOAD = aP.registerClientCall(6, "s", "", [E_NOT_LOGGED_IN, E_INVALID_SESSION, E_WRONG_SIZE])
-var CC_REMOVE_FILE = aP.registerClientCall(7, "B", "", [E_NOT_LOGGED_IN])
-var CC_GET_FILES_INFO = aP.registerClientCall(8, "", "(B(uis))", [E_NOT_LOGGED_IN])
-var CC_GET_QUOTA_USAGE = aP.registerClientCall(9, "", "uuu")
 
 // Start the upload
 // config is an object with the keys "dumpFile", "uploadPort", "reconnectionTime", "aesKey", "aesIV", "maxUploadSpeed"
@@ -94,29 +78,27 @@ Uploader.getServerTree = function (callback) {
 	connect(function (conn) {
 		if (!conn)
 			return callback(null)
-		conn.sendCall(CC_GET_FILES_INFO, null, function (files) {
+		
+		conn.call("getFilesInfo", null, function (err, result) {
 			conn.close()
+			if (err)
+				return callback(null)
 			
 			// Decrypt all file names
 			var tree = new Tree
-			files.forEach(function (file) {
+			result.files.forEach(function (file) {
 				// Decrypt
 				var decipher = crypto.createDecipheriv("aes128", _config.aesKey, _config.aesIV)
-				decipher.end(file[0])
+				decipher.end(file.path)
 				var filePath = decipher.read().toString()
 				
 				// Store in the tree
 				var folderPath = path.dirname(filePath)
 				var folder = tree.getFolder(folderPath)
-				folder.setFileInfo(path.basename(filePath), file[1].map(function (each) {
-					return {size: each[0], mtime: each[1], id: each[2]}
-				}))
+				folder.setFileInfo(path.basename(filePath), file.versions)
 			})
 			
 			callback(tree.toJSON())
-		}, function () {
-			conn.close()
-			callback(null)
 		})
 	})
 }
@@ -136,12 +118,9 @@ Uploader.getQuotaUsage = function (callback) {
 	connect(function (conn) {
 		if (!conn)
 			return callback(null)
-		conn.sendCall(CC_GET_QUOTA_USAGE, null, function (data) {
-			callback({total: data[0], free: data[1], softUse: data[2]})
+		conn.call("getQuotaUsage", null, function (err, result) {
 			conn.close()
-		}, function () {
-			callback(null)
-			conn.close()
+			callback(result)
 		})
 	})
 }
@@ -220,16 +199,16 @@ function pickFileToUpload() {
 	
 	mode = file.folder.getFileInfo(file.fileName)
 	
-	if (mode == REMOVE) {
+	if (mode == REMOVE)
 		// Send the remove command to the server
-		_conn.sendCall(CC_REMOVE_FILE, new aP.Data().addBuffer(encodeFilePath(file.fullPath)), function () {
-			file.folder.removeItem(file.fileName)
-			saveData()
-			stepUploadSequence()
-		}, function () {
+		_conn.call("removeFile", {filePath: encodeFilePath(file.fullPath)}, function (err) {
+			if (!err) {
+				file.folder.removeItem(file.fileName)
+				saveData()
+			}
 			stepUploadSequence()
 		})
-	} else if (mode == UPDATE) {
+	else if (mode == UPDATE) {
 		// Get all data from the last file
 		// Don't extract it right away, wait for the stat response
 		fs.stat(file.fullPath, function (err, stats) {
@@ -264,31 +243,33 @@ function createUploadSession() {
 	})
 	source.pipe(hash)
 	hash.once("readable", function () {
-		var data = new aP.Data
-		
 		if (!fine || !_conn)
 			// Things went wrong in the mean time
 			return
 		
-		// Create the data package (Buffer filePath, int mtime, uint size, Buffer originalHash)
-		data.addBuffer(encodeFilePath(_uploading.file))
-			.addInt(_uploading.mtime)
-			.addUint(_uploading.size)
-			.addBuffer(hash.read())
+		// Create the data package (filePath: Buffer, mtime: int, size: uint, originalHash: Buffer)
+		var data = {
+			filePath: encodeFilePath(_uploading.file),
+			mtime: _uploading.mtime,
+			size: _uploading.size,
+			originalHash: hash.read()
+		}
 		
 		// Send
-		_conn.sendCall(CC_START_UPLOAD, data, function (id) {
+		_conn.call("startUpload", data, function (err, result) {
+			if (err) {
+				// Error, drop the connection
+				if (err.name === "outOfSpace")
+					console.log("[Uploader] out of space in the server")
+				this.close()
+				return
+			}
+			
 			// Save the session id and continue the process
-			_uploading.id = id
-			console.log("[Uploader] upload session %s for %s", id, _uploading.file)
+			_uploading.id = result.uploadId
+			console.log("[Uploader] upload session %s for %s", _uploading.id, _uploading.file)
 			saveData()
 			stepUploadSequence()
-		}, function (type) {
-			// Error, drop the connection
-			if (type == E_OUT_OF_SPACE)
-				console.log("[Uploader] out of space in the server")
-			if (_conn)
-				_conn.close()
 		})
 	})
 }
@@ -296,27 +277,22 @@ function createUploadSession() {
 // Load the next chunk and start the chunk upload session
 function startNewChunkUpload() {
 	var ignoreForNow = function () {
-		// Put the file back in the queue
-		if (_conn)
-			_conn.sendCall(CC_CANCEL_UPLOAD, _uploading.id)
+		// Put the file back in the queue and stop the process for now
+		if (_conn) {
+			_conn.call("cancelUpload", {id: _uploading.id})
+			_conn.close()
+		}
 		setFileInfo(_uploading.file, UPDATE)
+		saveData()
 		_uploading = null
-		stepUploadSequence()
 	}
-	
 	var stats
+	
 	try {
 		// Check for changes
 		stats = fs.statSync(_uploading.file)
-		if (stats.size != _uploading.size || hashDate(stats.mtime) != _uploading.mtime) {
-			// Ignore this file
-			if (_conn)
-				_conn.sendCall(CC_CANCEL_UPLOAD, _uploading.id)
-			_uploading = null
-			saveData()
-			stepUploadSequence()
-			return
-		}
+		if (stats.size != _uploading.size || hashDate(stats.mtime) != _uploading.mtime)
+			return ignoreForNow()
 	} catch (e) {
 		return ignoreForNow()
 	}
@@ -330,13 +306,12 @@ function startNewChunkUpload() {
 			
 			// Encode the buffer and start the chunk session
 			buffer = encodeBuffer(buffer.slice(0, bytesRead))
-			var data = new aP.Data().addString(_uploading.id).addBuffer(sha1(buffer))
+			var data = {uploadId: _uploading.id, hash: sha1(buffer)}
 			if (!_conn) return
-			_conn.sendCall(CC_START_CHUNK_UPLOAD, data, function (chunkId) {
-				uploadChunk(buffer, chunkId)
-			}, function (type) {
-				if (type == E_INVALID_SESSION)
-					ignoreForNow()
+			_conn.call("startChunkUpload", data, function (err, result) {
+				if (err)
+					return ignoreForNow()
+				uploadChunk(buffer, result.chunkId)
 			})
 		})
 	})
@@ -369,13 +344,12 @@ function uploadChunk(encodedChunk, chunkId) {
 			continueUpload()
 		else if (_conn) {
 			// Check chunk status
-			_conn.sendCall(CC_COMMIT_CHUNK, new aP.Data().addString(chunkId), function () {
-				// Chunk uploaded sucessfuly
-				_uploading.sentChunks++
-				saveData()
-				continueUpload()
-			}, function () {
-				// Try to send chunk again
+			_conn.call("commitChunk", {id: chunkId}, function (err) {
+				if (!err) {
+					// Chunk uploaded sucessfuly
+					_uploading.sentChunks++
+					saveData()
+				}
 				continueUpload()
 			})
 		}
@@ -385,16 +359,14 @@ function uploadChunk(encodedChunk, chunkId) {
 // Finish the upload process
 function endUpload() {
 	if (!_conn) return
-	_conn.sendCall(CC_COMMIT_UPLOAD, _uploading.id, function () {
-		// Fine, done!
+	_conn.call("commitUpload", {id: _uploading.id}, function (err) {
+		if (err) {
+			// Something went wrong, put the file back in the queue
+			console.log("[Uploader] fatal error on file upload: "+err.name)
+			setFileInfo(_uploading.file, UPDATE)
+		}
 		_uploading = null
 		saveData()
-		stepUploadSequence()
-	}, function (type) {
-		// Something went wrong, put the file back in the queue
-		console.log("[Uploader] fatal error on file upload: "+type)
-		setFileInfo(_uploading.file, UPDATE)
-		_uploading = null
 		stepUploadSequence()
 	})
 }

@@ -160,7 +160,7 @@ var runStep = function () {
 		// Restart all queues
 		for (root in _queue)
 			_queue[root] = [""]
-		console.log("[Watcher] end of cicle")
+		console.log("[Watcher] end of cicle (took "+(Date.now()-_lastCicleTime)+" ms)")
 		_lastCicleTime = Date.now()
 		_tree.clear()
 	}

@@ -1,6 +1,6 @@
 // Control the UI for the restore process
 
-/*global Window, createNode, FolderPicker, CC_CREATE_DOWNLOAD_TASK, _conn, aP*/
+/*global Window, createNode, FolderPicker, _conn*/
 
 "use strict"
 
@@ -76,7 +76,6 @@ Restore._pickFolder = function (filesCount, totalSize, maxLength, finalTree) {
 // Commit the job to the node client and show a status UI
 Restore._commit = function (filesCount, totalSize, maxLength, finalTree, destination) {
 	// TODO
-	var data = new aP.Data().addString(JSON.stringify(finalTree)).addString(destination)
-	_conn.sendCall(CC_CREATE_DOWNLOAD_TASK, data)
+	_conn.call("createDownloadTask", {files: JSON.stringify(finalTree), destination: destination})
 	//Window.open("Restoring").appendChild(createNode("p", JSON.stringify(finalTree)))
 }

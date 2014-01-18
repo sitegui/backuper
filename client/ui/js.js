@@ -1,30 +1,34 @@
-/*global aP, _port, FilesExplorer, Window, FolderPicker*/
+/*global _port, FilesExplorer, Window, FolderPicker*/
 
 "use strict"
 
-var E_SERVER_IS_DOWN = aP.registerException(100)
-var CC_GET_UPLOADER_STATUS = aP.registerClientCall(100, "", "busuf")
-var CC_GET_TREE = aP.registerClientCall(101, "", "s")
-var CC_GET_WATCHED_FOLDERS = aP.registerClientCall(102, "", "(su)u")
-var CC_ADD_WATCH_FOLDER = aP.registerClientCall(103, "s", "(su)u")
-var CC_REMOVE_WATCH_FOLDER = aP.registerClientCall(104, "s", "(su)u")
-var CC_GET_QUOTA_USAGE = aP.registerClientCall(105, "", "uuu", [E_SERVER_IS_DOWN])
-var CC_GET_FOLDERS_IN_DIR = aP.registerClientCall(106, "s", "(s)")
-var CC_GET_DISK_UNITS = aP.registerClientCall(107, "", "(s)")
-var CC_CREATE_DOWNLOAD_TASK = aP.registerClientCall(108, "ss")
-var SC_UPLOADER_PROGRESS = aP.registerServerCall(100, "busuf")
+var aP = require("async-protocol-web")
 
-var _conn = new aP("ws://localhost:"+_port)
+var cntxt = new aP
+
+cntxt.registerException("#1 serverIsDown")
+
+cntxt.registerServerCall("#1 uploaderProgress(connected: boolean, queueLength: uint, file: string, size: uint, progress: float)", function (args, answer) {
+	updateUploaderStatus(args)
+	answer()
+})
+
+cntxt.registerClientCall("#1 getUploaderStatus -> connected: boolean, queueLength: uint, file: string, size: uint, progress: float")
+cntxt.registerClientCall("#2 getTree -> tree: string")
+cntxt.registerClientCall("#3 getWatchedFolders -> folders[]: (name: string, files: uint), lastCicleTime: uint")
+cntxt.registerClientCall("#4 addWatchFolder(folder: string) -> folders[]: (name: string, files: uint), lastCicleTime: uint")
+cntxt.registerClientCall("#5 removeWatchFolder(folder: string) -> folders[]: (name: string, files: uint), lastCicleTime: uint")
+cntxt.registerClientCall("#6 getQuotaUsage -> total: uint, free: uint, softUse: uint")
+cntxt.registerClientCall("#7 getFoldersInDir(dir: string) -> folders[]: string")
+cntxt.registerClientCall("#8 getDiskUnits -> units[]: string")
+cntxt.registerClientCall("#9 createDownloadTask(files: string, destination: string)")
+
+var _conn = cntxt.connect("ws://localhost:"+_port)
 _conn.onopen = function () {
-	_conn.sendCall(CC_GET_UPLOADER_STATUS, null, function (data) {
-		updateUploaderStatus(data[0], data[1], data[2], data[3], data[4])
+	_conn.call("getUploaderStatus", null, function (err, result) {
+		if (result)
+			updateUploaderStatus(result)
 	})
-	_conn.oncall = function (type, data, answer) {
-		if (type == SC_UPLOADER_PROGRESS) {
-			updateUploaderStatus(data[0], data[1], data[2], data[3], data[4])
-			answer()
-		}
-	}
 	fullUpdate()
 }
 _conn.onclose = function () {
@@ -40,21 +44,25 @@ window.onload = function () {
 // Auto-reload after 5min
 function fullUpdate() {
 	get("reload-button").style.display = "none"
-	_conn.sendCall(CC_GET_TREE, null, function (str) {
-		FilesExplorer.setTree(JSON.parse(str))
-		get("reload-button").style.display = ""
+	_conn.call("getTree", null, function (err, result) {
+		if (result) {
+			FilesExplorer.setTree(JSON.parse(result.tree))
+			get("reload-button").style.display = ""
+		}
 	})
 	
-	_conn.sendCall(CC_GET_WATCHED_FOLDERS, null, function (data) {
-		updateWatchedList(data[0], data[1])
+	_conn.call("getWatchedFolders", null, function (err, result) {
+		if (result)
+			updateWatchedList(result)
 	})
 	
 	get("quota").innerHTML = "<p>Loading...</p>"
 	get("quota").className = ""
-	_conn.sendCall(CC_GET_QUOTA_USAGE, null, function (data) {
-		updateQuota(data[0], data[1], data[2])
-	}, function () {
-		get("quota").innerHTML = "<p>Unable to reach the server</p>"
+	_conn.call("getQuotaUsage", null, function (err, result) {
+		if (err)
+			get("quota").innerHTML = "<p>Unable to reach the server</p>"
+		else
+			updateQuota(result)
 	})
 	
 	clearTimeout(fullUpdate.interval)
@@ -67,7 +75,12 @@ function get(id) {
 }
 
 // Update the info shown in the interface
-function updateUploaderStatus(connected, queueLength, file, size, progress) {
+// obj is an object with the keys "connected", "queueLength", "file" and "progress"
+function updateUploaderStatus(obj) {
+	var connected = obj.connected
+	var queueLength = obj.queueLength
+	var file = obj.file
+	var progress = obj.progress
 	var queueEl = get("upload-queue")
 	if (queueLength)
 		queueEl.textContent = queueLength+" file"+(queueLength==1 ? "" : "s")+" waiting for upload"
@@ -86,8 +99,11 @@ function updateUploaderStatus(connected, queueLength, file, size, progress) {
 }
 
 // Update the quota display
-// info is an Array [uint total, uint free, uint softUse]
-function updateQuota(total, free, softUse) {
+// obj is an object with the keys "total", "free", "softUse"
+function updateQuota(obj) {
+	var total = obj.total
+	var free = obj.free
+	var softUse = obj.softUse
 	var quotaEl = get("quota")
 	quotaEl.innerHTML = ""
 	get("quota").className = "quota"
@@ -103,19 +119,23 @@ function updateQuota(total, free, softUse) {
 }
 
 // Update the list of watched folders
-function updateWatchedList(folders, lastCicleTime) {
+// obj is an object with the keys "folders" and "lastCicleTime"
+function updateWatchedList(obj) {
+	var folders = obj.folders
+	var lastCicleTime = obj.lastCicleTime
 	var el = get("watch-list")
 	el.innerHTML = ""
 	
 	// Append the folder names list
 	folders.forEach(function (folder) {
 		var li = createNode("li", "")
-		li.appendChild(getSpanForPath(folder[0]))
-		li.appendChild(createNode(" ("+folder[1]+" files) - "))
+		li.appendChild(getSpanForPath(folder.name))
+		li.appendChild(createNode(" ("+folder.files+" files) - "))
 		var span = createNode("span", "button", "Remove")
 		span.onclick = function () {
-			_conn.sendCall(CC_REMOVE_WATCH_FOLDER, folder[0], function (data) {
-				updateWatchedList(data[0], data[1])
+			_conn.call("removeWatchFolder", {folder: folder.name}, function (err, result) {
+				if (result)
+					updateWatchedList(result)
 			})
 			span.onclick = null
 		}
@@ -130,8 +150,9 @@ function updateWatchedList(folders, lastCicleTime) {
 	span.onclick = function () {
 		FolderPicker.pick("Add folder", function (folder) {
 			if (folder)
-				_conn.sendCall(CC_ADD_WATCH_FOLDER, folder, function (data) {
-					updateWatchedList(data[0], data[1])
+				_conn.call("addWatchFolder", {folder: folder}, function (err, result) {
+					if (result)
+						updateWatchedList(result)
 				})
 		})
 	}
