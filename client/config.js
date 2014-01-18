@@ -17,8 +17,6 @@ module.exports = {
 	uploader: {
 		// File in which the current state will be saved
 		dumpFile: "uploader.dump",
-		// host: "" -> got from connect.host
-		uploadPort: 8002,
 		// Time between reconnection attempts (in ms)
 		reconnectionTime: 1*60*60*1e3,
 		// The limit for the average upload speed (in kbps)

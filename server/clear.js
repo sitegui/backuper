@@ -56,7 +56,6 @@ module.exports = function () {
 	
 	// Old files in the temp folder
 	clearFolder(config.tempFolder, maxTimestamp)
-	clearFolder(config.tempChunksFolder, maxTimestamp)
 }
 
 function clearFolder(folder, maxTimestamp) {

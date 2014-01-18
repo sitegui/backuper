@@ -304,25 +304,17 @@ function startNewChunkUpload() {
 			fs.close(fd, function () {})
 			if (err) return ignoreForNow()
 			
-			// Encode the buffer and start the chunk session
+			// Encode the buffer and start the chunk upload
 			buffer = encodeBuffer(buffer.slice(0, bytesRead))
-			var data = {uploadId: _uploading.id, hash: sha1(buffer)}
-			if (!_conn) return
-			_conn.call("startChunkUpload", data, function (err, result) {
-				if (err)
-					return ignoreForNow()
-				uploadChunk(buffer, result.chunkId)
-			})
+			uploadChunk(buffer)
 		})
 	})
 }
 
-// Open an auxiliary connection and send the encoded chunk
-function uploadChunk(encodedChunk, chunkId) {
-	var conn, nextTime
-	
+// Send the encoded chunk
+function uploadChunk(encodedChunk) {
 	// Get the minimum time when the next chunk upload should start
-	nextTime = Date.now()+8*(encodedChunk.length+32)/_config.maxUploadSpeed
+	var nextTime = Date.now()+8*(encodedChunk.length+32)/_config.maxUploadSpeed
 	var continueUpload = function () {
 		var delta = nextTime-Date.now()
 		if (delta > 0)
@@ -331,29 +323,28 @@ function uploadChunk(encodedChunk, chunkId) {
 			stepUploadSequence()
 	}
 	
-	// Open a new connection and send the data
-	conn = net.connect({port: _config.uploadPort, host: _config.host})
-	conn.once("connect", function () {
-		conn.write(chunkId)
-		conn.end(encodedChunk)
-	})
-	conn.once("error", function () {})
-	conn.once("close", function () {
-		if (conn.bytesWritten != 32+encodedChunk.length)
-			// Try to send the chunk again
+	// Send the data
+	var data = {uploadId: _uploading.id, hash: sha1(encodedChunk), chunk: encodedChunk}
+	if (!_conn) return
+	_conn.call("uploadChunk", data, function (err) {
+		if (!err) {
+			// Chunk uploaded sucessfuly
+			_uploading.sentChunks++
+			saveData()
 			continueUpload()
-		else if (_conn) {
-			// Check chunk status
-			_conn.call("commitChunk", {id: chunkId}, function (err) {
-				if (!err) {
-					// Chunk uploaded sucessfuly
-					_uploading.sentChunks++
-					saveData()
-				}
-				continueUpload()
-			})
-		}
-	})
+		} else if (err.name == "invalidSession") {
+			// Put the file back in the queue and stop the process for now
+			if (_conn) {
+				_conn.call("cancelUpload", {id: _uploading.id})
+				_conn.close()
+			}
+			setFileInfo(_uploading.file, UPDATE)
+			saveData()
+			_uploading = null
+		} else
+			// Try again
+			continueUpload()
+	}, 5*60e3)
 }
 
 // Finish the upload process

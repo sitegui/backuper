@@ -1,57 +1,51 @@
 # Exceptions
 
-## NOT_LOGGED_IN (1)
-## OUT_OF_SPACE (2)
-## INVALID_SESSION (3)
-## LOGIN_ERROR (4)
-## WRONG_SIZE (5)
-## CORRUPTED_DATA (6)
-## NOT_FOUND (7)
+## #1 notLoggedIn
+## #2 outOfSpace
+## #3 invalidSession
+## #4 loginError
+## #5 wrongSize
+## #6 corruptedData
+## #7 notFound
 
 # Client calls
 
-## 1: login(string userName, token password) -> ()
-Throws: LOGIN_ERROR
+## #1 login(userName: string, password: token)
+Throws: "loginError"
 The password is stored in the first 16B of "keys" file
 
-## 2: startUpload(Buffer filePath, int mtime, uint size, Buffer originalHash) -> (string uploadId)
-Throws: NOT_LOGGED_IN, OUT_OF_SPACE
+## #2 startUpload(filePath: Buffer, mtime: int, size: uint, originalHash: Buffer) -> uploadId: string
+Throws: "notLoggedIn", "outOfSpace"
 originalHash is the sha1 of the original (decrypted) file
 Create a new upload session for a given file
 Return the session id that should be used to upload each file chunk
 
-## 3: startChunkUpload(string uploadId, Buffer hash) -> (string chunkId)
-Throws: NOT_LOGGED_IN, INVALID_SESSION
+## #3 uploadChunk(uploadId: string, hash: Buffer, chunk: Buffer)
+Throws: "notLoggedIn", "invalidSession", "corruptedData"
 Create a chunk upload session
-Hash is the SHA1 hash of the chunk data
-To continue the upload, the client should open another connection to port 8002,
-and send the token and the whole chunk then close the socket
+`hash` is the SHA1 hash of the chunk data
+`chunk` is the encrypted chunk
+This call will only return after the file is completely copied to final destination. This may take a while, so it's a good practice to use a greater timeout value
 
-## 4: commitChunk(string chunkId) -> ()
-Throws: NOT_LOGGED_IN, INVALID_SESSION, CORRUPTED_DATA
-Don't call it more than once for the same chunk upload session
-This call will only return after the file is completely copied to final destination
+## #5 cancelUpload(id: string)
+Throws: "notLoggedIn"
 
-## 5: cancelUpload(string uploadId) -> ()
-Throws: NOT_LOGGED_IN
-
-## 6: commitUpload(string uploadId) -> ()
-Throws: NOT_LOGGED_IN, INVALID_SESSION, WRONG_SIZE
+## #6 commitUpload(id: string)
+Throws: "notLoggedIn", "invalidSessions", "wrongSize"
 Close the given upload session and commit the submited file
 This call will only return after the file is completely copied to final destination
 
-## 7: removeFile(Buffer filePath) -> ()
-Throws: NOT_LOGGED_IN
+## #7 removeFile(filePath: Buffer)
+Throws: "notLoggedIn"
 
-## 8: getFilesInfo() -> ((Buffer path, (uint size, int mtime, string id)[] versions)[] files)
-Throws: NOT_LOGGED_IN
+## #8 getFilesInfo -> files[]: (path: Buffer, versions[]: (size: uint, mtime: int, id: string))
+Throws: "notLoggedIn"
 Return the info about all files for the current user
 
-## 9: getQuotaUsage() -> (uint total, uint free, uint softUse)
+## #9 getQuotaUsage -> total: uint, free: uint, softUse: uint
 Return info about the current user quota (in bytes)
 softUse is the space taken by old versions (space that can be freed whenever needed)
 
-## 10: requestFileDownload(uploadId: string) -> (downloadToken: Token, size: uint, originalHash: Buffer)
-Throws: NOT_LOGGED_IN, NOT_FOUND
+## #10 requestFileDownload(uploadId: string) -> downloadToken: token, size: uint, originalHash: Buffer
+Throws: "notLoggedIn", "notFound"
 To continue the download, the client should open another connection to downloadPort and send the token
-

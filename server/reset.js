@@ -38,9 +38,6 @@ MongoClient.connect(config.mongoURL, function (err, db) {
 fs.readdirSync(config.tempFolder).forEach(function (file) {
 	unlink(config.tempFolder+file)
 })
-fs.readdirSync(config.tempChunksFolder).forEach(function (file) {
-	unlink(config.tempChunksFolder+file)
-})
 fs.readdirSync(config.dataFolder).forEach(function (folder) {
 	if (folder.match(/^[0-9a-z]{32}$/)) {
 		fs.readdirSync(config.dataFolder+folder).forEach(function (file) {

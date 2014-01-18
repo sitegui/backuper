@@ -33,10 +33,6 @@ function throwError(err) {
 	}
 }
 
-// Save the data about the current chunk uploads
-// The keys are the session ids (hex-encoded) and the values are objets like {hash: Buffer, upload: <the-bd-upload-doc>}
-var _chunks = {}
-
 // Save the tokens given for download operations
 // Each key is a hex-encoded token and each value is the file relative path to config.dataFolder
 var _downloads = {}
@@ -44,34 +40,6 @@ var _downloads = {}
 // Create the server
 var server = net.createServer().listen(config.port)
 cntxt.wrapServer(server)
-
-// Create the server for the upload port
-net.createServer({allowHalfOpen: true}, function (conn) {
-	var buffer = new Buffer(0)
-	var onreadable = function () {
-		var data = conn.read(), id
-		if (!data) return
-		
-		// Extract the first 32 bytes as the chunk id
-		buffer = Buffer.concat([buffer, data], buffer.length+data.length)
-		if (buffer.length >= 32) {
-			id = buffer.slice(0, 32).toString()
-			if (!id.match(/^[0-9a-f]{32}$/))
-				return conn.end()
-			
-			// Dump all bytes after the 32º to a temp file
-			var stream = fs.createWriteStream(config.tempChunksFolder+id)
-			stream.write(buffer.slice(32))
-			conn.pipe(stream)
-			stream.once("finish", function () {
-				conn.end(".") // warn everything was received
-			})
-			conn.removeListener("readable", onreadable)
-		}
-	}
-	conn.on("readable", onreadable)
-	conn.once("error", function () {})
-}).listen(config.uploadPort)
 
 // Create the server for the download port
 net.createServer(function (conn) {
@@ -212,69 +180,45 @@ function freeSpace(size, user, callback) {
 	})
 }
 
-cntxt.registerClientCall("#3 startChunkUpload(uploadId: string, hash: Buffer) -> chunkId: string", function (args, answer) {
+cntxt.registerClientCall("#3 uploadChunk(uploadId: string, hash: Buffer, chunk: Buffer)", function (args, answer) {
 	var user = this.user
 	if (!user)
 		return answer(new aP.Exception("notLoggedIn"))
 	
 	_db.collection("uploads").findOne({localName: args.uploadId, user: user.name}, function (err, upload) {
-		var chunkId
 		throwError(err)
 		if (!upload)
 			return answer(new aP.Exception("invalidSession"))
-		chunkId = getRandomHexString()
-		_chunks[chunkId] = {hash: args.hash, upload: upload}
-		answer({chunkId: chunkId})
-	})
-})
-
-cntxt.registerClientCall("#4 commitChunk(id: string)", function (args, answer) {
-	var user = this.user
-	if (!user)
-		return answer(new aP.Exception("notLoggedIn"))
-	
-	// Get chunk info
-	var chunk = _chunks[args.id]
-	if (!chunk || chunk.upload.user != user.name)
-		return answer(new aP.Exception("invalidSession"))
-	delete _chunks[args.id]
-	
-	// Check the data
-	var chunkPath = config.tempChunksFolder+args.id
-	var uploadTempPath = config.tempFolder+chunk.upload.localName
-	var uploadFinalPath = config.dataFolder+user.localName+path.sep+chunk.upload.localName
-	fs.readFile(chunkPath, function (err, data) {
-		throwError(err)
 		
 		// Check the hash
 		var hash = crypto.createHash("sha1")
-		hash.end(data)
-		hash = hash.read()
-		if (hash.toString("hex") != chunk.hash.toString("hex"))
+		hash.end(args.chunk)
+		if (hash.read().toString("hex") !== args.hash.toString("hex"))
 			return answer(new aP.Exception("corruptedData"))
 		
 		// Check the size
-		if (data.length > 16+CHUNK_SIZE+16)
+		if (args.chunk.length > 16+CHUNK_SIZE+16)
 			return answer(new aP.Exception("corruptedData"))
 		
 		// Append to the upload session file
+		var uploadTempPath = config.tempFolder+upload.localName
+		var uploadFinalPath = config.dataFolder+user.localName+path.sep+upload.localName
 		var append = function () {
-			fs.appendFile(uploadTempPath, data, function (err) {
+			fs.appendFile(uploadTempPath, args.chunk, function (err) {
 				throwError(err)
 				
 				// Update the number of received chunks in the db
-				var query = {user: user.name, localName: chunk.upload.localName}
+				var query = {user: user.name, localName: upload.localName}
 				_db.collection("uploads").update(query, {$inc: {receivedChunks: 1}}, throwError)
 				
-				console.log("[server] %d/%d %s", chunk.upload.receivedChunks+1, Math.ceil(chunk.upload.size/CHUNK_SIZE), chunk.upload.localName)
+				console.log("[server] %d/%d %s", upload.receivedChunks+1, Math.ceil(upload.size/CHUNK_SIZE), upload.localName)
 				
 				// Done
 				answer()
 			})
-			fs.unlink(chunkPath, throwError)
 		}
 		
-		if (chunk.upload.receivedChunks%100 == 99)
+		if (upload.receivedChunks%100 == 99)
 			// First copy the previous chunks to the final location
 			appendAndRemove(uploadTempPath, uploadFinalPath, function (err) {
 				throwError(err)

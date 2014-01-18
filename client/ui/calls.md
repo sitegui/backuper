@@ -1,17 +1,17 @@
 # Exceptions
 
-## 100: SERVER_IS_DOWN()
+## #1 serverIsDown
 Sent when the server hasn't responded
 
 # Client calls
 
-## 100: getUploaderStatus() -> (bool connected, uint queueLength, string file, uint size, float progress)
+## #1 getUploaderStatus -> connected: boolean, queueLength: uint, file: string, size: uint, progress: float
 Return the current upload status
 If idle, file will be an empty string
 Whenever this changes, the server will send uploaderProgress()
 progress is a value between 0 and 1
 
-## 101: getTree() -> (string tree)
+## #2 getTree -> tree: string
 Return the tree of all know files (JSON-encoded)
 Return empty string if the server is down
 Leaf items have these keys:
@@ -28,31 +28,31 @@ Non-leaf items has these keys:
 	}
 Each bool indicate whether this branch exists in the respective tree
 
-## 102: getWatchedFolders -> folders[]: (name: string, files: uint), lastCicleTime: uint
+## #3 getWatchedFolders -> folders[]: (name: string, files: uint), lastCicleTime: uint
 
-## 103: addWatchFolder(string folder) -> folders[]: (name: string, files: uint), lastCicleTime: uint
+## #4 addWatchFolder(folder: string) -> folders[]: (name: string, files: uint), lastCicleTime: uint
 Return the new set of watched folders
 
-## 104: removeWatchFolder(string folder) -> folders[]: (name: string, files: uint), lastCicleTime: uint
+## #5 removeWatchFolder(folder: string) -> folders[]: (name: string, files: uint), lastCicleTime: uint
 Return the new set of watched folders
 
-## 105: getQuotaUsage() -> (uint total, uint free, uint softUse)
-Throw: SERVER_IS_DOWN
+## #6 getQuotaUsage -> total: uint, free: uint, softUse: uint
+Throw: "serverIsDown"
 Return info about the current user quota (in bytes)
 softUse is the space taken by old versions (space that can be freed whenever needed)
 
-## 106: getFoldersInDir(dir: string) -> folders[]: string
+## #7 getFoldersInDir(dir: string) -> folders[]: string
 Like readdir, except that only return sub-directories
 
-## 107: getDiskUnits -> units[]: string
+## #8 getDiskUnits -> units[]: string
 Return the available units names, like "C:", "D:", etc
 
-## 108: createDownloadTask(files: string, destination: string)
+## #9 createDownloadTask(files: string, destination: string)
 Start a new restoration job
 files is a JSON-encoded tree (the same format accepted by Tree.js node-module)
 
 # Server calls
 
-## 100: uploaderProgress(bool connected, uint queueLength, string file, uint size, float progress) -> ()
+## #1 uploaderProgress(connected: boolean, queueLength: uint, file: string, size: uint, progress: float)
 Broadcast any update to the uploader status
 If idle, file will be an empty string
