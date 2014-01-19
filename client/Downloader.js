@@ -66,7 +66,7 @@ Downloader.start = function (config) {
 // Return the task {id: string, numFiles: uint}
 Downloader.createTask = function (files, destination) {
 	var id = getRandomHexString()
-	var numFiles = files.getAllFiles().length
+	var numFiles = files.getNumFiles()
 	_tasks[id] = {id: id, destination: destination, files: files, errors: [], numFiles: numFiles}
 	_hasWork = true
 	reconnect()

@@ -58,7 +58,7 @@ Uploader.queueFileRemove = function (file) {
 Uploader.getStatus = function () {
 	var status = {
 		connected: Boolean(_conn),
-		queueLength: _tree.getAllFiles().length,
+		queueLength: _tree.getNumFiles(),
 		file: "",
 		size: 0,
 		progress: 0

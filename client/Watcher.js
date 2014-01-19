@@ -104,7 +104,7 @@ Watcher.getFoldersInfo = function () {
 	if (!_started)
 		throw new Error("Watcher hasn't started")
 	var folders = _folders.map(function (folder) {
-		var files = _tree.getFolder(folder).getAllFiles().length
+		var files = _tree.getFolder(folder).getNumFiles()
 		return {name: folder, files: files}
 	})
 	return {folders: folders, lastCicleTime: _lastCicleTime}

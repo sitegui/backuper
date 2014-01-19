@@ -75,6 +75,25 @@ Tree.prototype.getAllFiles = function () {
 	return files
 }
 
+// Return the number of files inside the tree
+Tree.prototype.getNumFiles = function () {
+	var num = 0
+	
+	var aux = function (items) {
+		var itemName, item
+		for (itemName in items) {
+			item = items[itemName]
+			if (item instanceof Tree)
+				aux(item.items)
+			else
+				num++
+		}
+	}
+	
+	aux(this.items)
+	return num
+}
+
 // Return if the given item is a file child of this tree
 Tree.prototype.isFile = function (item) {
 	return item in this.items && !(this.items[item] instanceof Tree)
