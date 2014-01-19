@@ -27,6 +27,14 @@ h2 {
 	text-align:center;
 }
 
+h3 {
+	background-color:rgba(0, 0, 0, .25);
+	padding:5px;
+	color:#EEE;
+	margin-top:0;
+	text-align:center;
+}
+
 .button {
 	cursor:pointer;
 	display:inline-block;
@@ -184,6 +192,7 @@ Window
 	height:100%;
 	top:0;
 	left:0;
+	z-index:100;
 }
 
 .window {
@@ -253,4 +262,20 @@ Quota
 }
 
 .quota-free {
+}
+
+/*
+TasksStatus
+*/
+
+.tasksStatus {
+	position:fixed;
+	right:0;
+	bottom:0;
+	background-color:#F90;
+	border:5px rgba(0, 0, 0, .5) solid;
+}
+
+.tasksStatus > p {
+	padding:10px;
 }

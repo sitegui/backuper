@@ -15,7 +15,8 @@ var crypto = require("crypto")
 // Start the restore
 // It'll awake from the saved state (or start from scratch if it doesn't exist)
 // config is an object with the keys "dumpFile", "downloadPort", "reconnectionTime", "aesKey"
-// This object emits update() whenever the internal status change (check getStatus())
+// taskUpdate(taskId, numFiles) is emited when the number of files in the queue changes
+// taskError(taskId, errorStr) is emited when any file fails to be recovered
 Downloader.start = function (config) {
 	_config = config
 	fs.readFile(_config.dumpFile, {encoding: "utf8"}, function (err, data) {
@@ -62,14 +63,35 @@ Downloader.start = function (config) {
 // Start a task to download the given server tree to the given destination folder in the client
 // files is a Tree, where the the files info is the uploadId for each download
 // destination is a string
-// Return the task id, a string to refer to this task afterwards
+// Return the task {id: string, numFiles: uint}
 Downloader.createTask = function (files, destination) {
 	var id = getRandomHexString()
-	_tasks[id] = {destination: destination, files: files, errors: []}
+	var numFiles = files.getAllFiles().length
+	_tasks[id] = {id: id, destination: destination, files: files, errors: [], numFiles: numFiles}
 	_hasWork = true
 	reconnect()
 	saveData()
-	return id
+	return {id: id, numFiles: numFiles}
+}
+
+// Return the current status of every download task
+// Return an Array of objects like {id: string, destination: string, numFiles: uint, errors[]: string}
+Downloader.getStatus = function () {
+	var taskId, status = []
+	for (taskId in _tasks) {
+		status.push({
+			id: taskId,
+			destination: _tasks[taskId].destination,
+			numFiles: _tasks[taskId].numFiles,
+			errors: _tasks[taskId].errors
+		})
+	}
+	return status
+}
+
+// Cancel the task with the given id
+Downloader.cancelTask = function (id) {
+	delete _tasks[id]
 }
 
 /*
@@ -78,7 +100,7 @@ Internals
 
 var _config
 var _started = false
-var _tasks // An object in which values are objects like {destination: string, files: Tree, errors[]: string} indexed by the task id
+var _tasks // An object in which values are objects like {id: string, destination: string, files: Tree, numFiles: uint, errors[]: string} indexed by the task id
 var _conn = null
 var _hasWork // whether there is work to be done
 var _task // current task
@@ -94,7 +116,7 @@ function throwErr(err) {
 // Store the connection in the global var _conn
 function reconnect() {
 	if (_conn || !_hasWork)
-		// Not need to continue
+		// No need to continue
 		return
 	connect(function (conn) {
 		if (conn) {
@@ -112,6 +134,7 @@ function startDownload() {
 	var taskId
 	
 	// Pick a file to download
+	_file = null
 	for (taskId in _tasks) {
 		_task = _tasks[taskId]
 		_file = _task.files.getAnyFile()
@@ -182,7 +205,7 @@ function decrypt(uploadId, originalHash) {
 		})
 	})
 	stream.once("error", function () {
-		pushError("could not save to final location")
+		pushError("could not save file to final location")
 	})
 	
 	// Async decrypt-each-chunk loop
@@ -205,7 +228,7 @@ function decrypt(uploadId, originalHash) {
 					return download(uploadId)
 				} else {
 					// The key (or worst, the uploaded data) is wrong
-					return pushError("could not decrypt, check your key")
+					return pushError("could not decrypt file, check your key")
 				}
 			}
 			var originalChunk = decipher.read()
@@ -230,6 +253,8 @@ function decrypt(uploadId, originalHash) {
 			// Done
 			fs.unlink(_config.tempFolder+uploadId, function () {})
 			_file.folder.removeItem(_file.fileName)
+			_task.numFiles--
+			Downloader.emit("taskUpdate", _task.id, _task.numFiles)
 			saveData()
 			startDownload()
 		} else if (!_hashFailed) {
@@ -238,7 +263,7 @@ function decrypt(uploadId, originalHash) {
 			download(uploadId)
 		} else {
 			// The key (or worst, the uploaded data) is wrong
-			pushError("could not decrypt, check your key")
+			pushError("could not decrypt file, check your key")
 		}
 	}
 }
@@ -267,10 +292,12 @@ function createFinalStream() {
 // Add a new error into the current task error list
 // Also ignore this file
 function pushError(error) {
-	_task.errors.push("["+_file.fullPath+"] "+error)
+	error = "["+_file.fullPath+"] "+error
+	_task.errors.push(error)
 	_file.folder.removeItem(_file.fileName)
-	console.error("["+_file.fullPath+"] "+error)
-	// TODO: send error to web ui
+	_task.numFiles--
+	Downloader.emit("taskError", _task.id, error)
+	Downloader.emit("taskUpdate", _task.id, _task.numFiles)
 	saveData()
 	startDownload()
 }

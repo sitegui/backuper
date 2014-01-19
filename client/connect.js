@@ -4,6 +4,8 @@ var config = require("./config.js").connect
 var aP = require("async-protocol")
 var net = require("net")
 
+aP.setMaxBufferLength(100*1024*1024) // 100 MiB
+
 var cntxt = new aP
 
 cntxt.registerException("#1 notLoggedIn")

@@ -47,12 +47,25 @@ Like readdir, except that only return sub-directories
 ## #8 getDiskUnits -> units[]: string
 Return the available units names, like "C:", "D:", etc
 
-## #9 createDownloadTask(files: string, destination: string)
+## #9 createDownloadTask(files: string, destination: string) -> id: string, numFiles: uint
 Start a new restoration job
-files is a JSON-encoded tree (the same format accepted by Tree.js node-module)
+`files` is a JSON-encoded tree (the same format accepted by Tree.js node-module)
+Return the id for this task and the number of affected files
+
+## #10 getRestoreProgress -> tasks[]: (id: string, destination: string, numFiles: uint, errors[]: string)
+Return progress info about each restore task
+
+## #11 cancelRestoreTask(id: string)
+Cancel a restore task
 
 # Server calls
 
 ## #1 uploaderProgress(connected: boolean, queueLength: uint, file: string, size: uint, progress: float)
 Broadcast any update to the uploader status
 If idle, file will be an empty string
+
+## #2 restoreProgress(id: string, numFiles: uint)
+Broadcast any update in the number of files to be recovered in the informed restore task
+
+## #3 restoreError(id: string, error: string)
+Broadcast any error in the restore task

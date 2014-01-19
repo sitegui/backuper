@@ -9,6 +9,8 @@ var cntxt = new aP
 cntxt.registerException("#1 serverIsDown")
 
 cntxt.registerServerCall("#1 uploaderProgress(connected: boolean, queueLength: uint, file: string, size: uint, progress: float)")
+cntxt.registerServerCall("#2 restoreProgress(id: string, numFiles: uint)")
+cntxt.registerServerCall("#3 restoreError(id: string, error: string)")
 
 var config = require("./config.js").ui
 var http = require("http")
@@ -82,6 +84,18 @@ exports.init = function (Watcher, Uploader, Downloader) {
 			})
 		}
 	})
+	
+	// Set listeners for Downloader activity
+	_downloader.on("taskUpdate", function (taskId, numFiles) {
+		_conns.forEach(function (conn) {
+			conn.call("restoreProgress", {id: taskId, numFiles: numFiles})
+		})
+	})
+	_downloader.on("taskError", function (taskId, errStr) {
+		_conns.forEach(function (conn) {
+			conn.call("restoreError", {id: taskId, error: errStr})
+		})
+	})
 }
 
 cntxt.registerClientCall("#1 getUploaderStatus -> connected: boolean, queueLength: uint, file: string, size: uint, progress: float", function (args, answer) {
@@ -152,8 +166,16 @@ cntxt.registerClientCall("#8 getDiskUnits -> units[]: string", function (args, a
 	answer({units: units})
 })
 
-cntxt.registerClientCall("#9 createDownloadTask(files: string, destination: string)", function (args, answer) {
-	_downloader.createTask(new Tree(JSON.parse(args.files)), args.destination)
+cntxt.registerClientCall("#9 createDownloadTask(files: string, destination: string) -> id: string, numFiles: uint", function (args, answer) {
+	answer(_downloader.createTask(new Tree(JSON.parse(args.files)), args.destination))
+})
+
+cntxt.registerClientCall("#10 getRestoreProgress -> tasks[]: (id: string, destination: string, numFiles: uint, errors[]: string)", function (args, answer) {
+	answer({tasks: _downloader.getStatus()})
+})
+
+cntxt.registerClientCall("#11 cancelRestoreTask(id: string)", function (args, answer) {
+	_downloader.cancelTask(args.id)
 	answer()
 })
 

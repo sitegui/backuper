@@ -1,4 +1,4 @@
-/*global _port, FilesExplorer, Window, FolderPicker*/
+/*global _port, FilesExplorer, Window, FolderPicker, Restore*/
 
 "use strict"
 
@@ -12,6 +12,14 @@ cntxt.registerServerCall("#1 uploaderProgress(connected: boolean, queueLength: u
 	updateUploaderStatus(args)
 	answer()
 })
+cntxt.registerServerCall("#2 restoreProgress(id: string, numFiles: uint)", function (args, answer) {
+	Restore.setProgress(args.id, args.numFiles)
+	answer()
+})
+cntxt.registerServerCall("#3 restoreError(id: string, error: string)", function (args, answer) {
+	Restore.setError(args.id, args.error)
+	answer()
+})
 
 cntxt.registerClientCall("#1 getUploaderStatus -> connected: boolean, queueLength: uint, file: string, size: uint, progress: float")
 cntxt.registerClientCall("#2 getTree -> tree: string")
@@ -21,23 +29,27 @@ cntxt.registerClientCall("#5 removeWatchFolder(folder: string) -> folders[]: (na
 cntxt.registerClientCall("#6 getQuotaUsage -> total: uint, free: uint, softUse: uint")
 cntxt.registerClientCall("#7 getFoldersInDir(dir: string) -> folders[]: string")
 cntxt.registerClientCall("#8 getDiskUnits -> units[]: string")
-cntxt.registerClientCall("#9 createDownloadTask(files: string, destination: string)")
+cntxt.registerClientCall("#9 createDownloadTask(files: string, destination: string) -> id: string, numFiles: uint")
+cntxt.registerClientCall("#10 getRestoreProgress -> tasks[]: (id: string, destination: string, numFiles: uint, errors[]: string)")
+cntxt.registerClientCall("#11 cancelRestoreTask(id: string)")
 
-var _conn = cntxt.connect("ws://localhost:"+_port)
-_conn.onopen = function () {
-	_conn.call("getUploaderStatus", null, function (err, result) {
-		if (result)
-			updateUploaderStatus(result)
-	})
-	fullUpdate()
-}
-_conn.onclose = function () {
-	Window.open("Connection error").textContent = "Please refresh the page to try again"
-}
+var _conn
 
 window.onload = function () {
-	FilesExplorer.init(get("files-path"), get("files-stage"))
 	Window.init()
+	_conn = cntxt.connect("ws://localhost:"+_port)
+	_conn.onopen = function () {
+		_conn.call("getUploaderStatus", null, function (err, result) {
+			if (result)
+				updateUploaderStatus(result)
+		})
+		FilesExplorer.init(get("files-path"), get("files-stage"))
+		Restore.init(get("tasksStatus"))
+		fullUpdate()
+	}
+	_conn.onclose = function () {
+		Window.open("Connection error").textContent = "Please refresh the page to try again"
+	}
 }
 
 // Reload the tree, the quota and the folder list from the server
