@@ -163,7 +163,13 @@ FilesExplorer._getFileOnClick = function (fileName, item) {
 		else {
 			info = createNode("ul", "")
 			item.server.forEach(function (each) {
-				info.appendChild(createNode("li", FilesExplorer._decodeDate(each.mtime)+" - "+bytes2str(each.size)))
+				var li = createNode("li", FilesExplorer._decodeDate(each.mtime)+" - "+bytes2str(each.size)+" - ")
+				var bt = createNode("span", "button", "Restore version")
+				li.appendChild(bt)
+				bt.onclick = function () {
+					Restore.restoreVersion(fileName, each.id)
+				}
+				info.appendChild(li)
 			})
 		}
 		

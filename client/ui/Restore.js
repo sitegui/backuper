@@ -77,6 +77,13 @@ Restore.restoreFolder = function (tree) {
 	Restore._pickFolder(maxLength, finalTree)
 }
 
+// Restore a single file version
+Restore.restoreVersion = function (fileName, uploadId) {
+	var tree = Object.create(null)
+	tree[fileName] = uploadId
+	Restore._pickFolder(fileName.length, tree)
+}
+
 /*
 Internals
 */
