@@ -26,6 +26,9 @@ var clear = require("./clear.js")
 clear()
 setInterval(clear, config.maxAge/10)
 
+// Set-up updater (sync)
+require("./Updater.js").init(cntxt)
+
 function throwError(err) {
 	if (err) {
 		console.trace()
