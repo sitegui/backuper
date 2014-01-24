@@ -11,20 +11,21 @@ var fs = require("fs")
 var Tree = require("./Tree.js")
 var connect = require("./connect.js")
 var crypto = require("crypto")
+var _dumpFile = "downloader.dump"
 
 // Start the restore
 // It'll awake from the saved state (or start from scratch if it doesn't exist)
-// config is an object with the keys "dumpFile", "downloadPort", "reconnectionTime", "aesKey"
+// config is an object with the keys "downloadPort", "reconnectionTime", "aesKey"
 // taskUpdate(taskId, numFiles) is emited when the number of files in the queue changes
 // taskError(taskId, errorStr) is emited when any file fails to be recovered
 Downloader.start = function (config) {
 	_config = config
-	fs.readFile(_config.dumpFile, {encoding: "utf8"}, function (err, data) {
+	fs.readFile(_dumpFile, {encoding: "utf8"}, function (err, data) {
 		if (_started)
 			throw new Error("Downloader has already been started")
 		if (err) {
 			// Create a new file watcher profile
-			console.log("[Downloader] creating dump file: "+_config.dumpFile)
+			console.log("[Downloader] creating dump file: "+_dumpFile)
 			_tasks = {}
 			_hasWork = false
 		} else {
@@ -313,9 +314,9 @@ function saveData() {
 	
 	var data = {format: 1, tasks: _tasks}
 	try {
-		fs.writeFileSync(_config.dumpFile, JSON.stringify(data))
+		fs.writeFileSync(_dumpFile, JSON.stringify(data))
 	} catch (e) {
-		console.log("[Downloader] Error while trying to save data into "+_config.dumpFile)
+		console.log("[Downloader] Error while trying to save data into "+_dumpFile)
 	}
 }
 saveData.counter = 0

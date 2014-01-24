@@ -6,21 +6,22 @@ module.exports = Watcher
 var path = require("path")
 var fs = require("fs")
 var Tree = require("./Tree.js")
+var _dumpFile = "watcher.dump"
 
 // Start the watcher
 // It'll awake from the saved state (or start from scratch if it doesn't exist)
-// config is an object with the keys "dumpFile", "foldersPerStep", "timeBetweenSteps", "ignore"
+// config is an object with the keys "foldersPerStep", "timeBetweenSteps", "ignore"
 // This object emits two events:
 // filechange(file), when a file change is detected (file is an absolute path)
 // fileremove(file), when detects a file was deleted (file is an absolute path)
 Watcher.start = function (config) {
 	_config = config
-	fs.readFile(_config.dumpFile, {encoding: "utf8"}, function (err, data) {
+	fs.readFile(_dumpFile, {encoding: "utf8"}, function (err, data) {
 		if (_started)
 			throw new Error("Watcher has already been started")
 		if (err) {
 			// Create a new file watcher profile
-			console.log("[Watcher] creating dump file: "+_config.dumpFile)
+			console.log("[Watcher] creating dump file: "+_dumpFile)
 			_folders = []
 			_queue = {}
 			_tree = new Tree()
@@ -122,7 +123,7 @@ Internals
 var _lastCicleTime // the timestamp of the last time the cicle ended
 var _folders // array of absolute paths
 var _queue // object, where each key is an element of _folders and each values is an array of absolute paths inside the key folder
-var _config // the config object (with keys "dumpFile", "foldersPerStep", "timeBetweenSteps")
+var _config // the config object (with keys "foldersPerStep", "timeBetweenSteps")
 var _started = false // flag if this module has been started
 var _tree // an Tree instance to store the mtime of each file
 
@@ -134,9 +135,9 @@ var saveData = function () {
 	data.queue = _queue
 	data.tree = _tree
 	data.lastCicleTime = _lastCicleTime
-	fs.writeFile(_config.dumpFile, JSON.stringify(data), function (err) {
+	fs.writeFile(_dumpFile, JSON.stringify(data), function (err) {
 		if (err)
-			console.error("[Watcher] Error while trying to save data into "+_config.dumpFile)
+			console.error("[Watcher] Error while trying to save data into "+_dumpFile)
 	})
 }
 

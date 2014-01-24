@@ -6,27 +6,27 @@ var Uploader = new (require("events").EventEmitter)
 module.exports = Uploader
 
 var fs = require("fs")
-var net = require("net")
 var path = require("path")
 var crypto = require("crypto")
 var Tree = require("./Tree.js")
 var connect = require("./connect.js")
+var _dumpFile = "uploader.dump"
 
 var UPDATE = 0
 var REMOVE = 1
 var CHUNK_SIZE = 1*1024*1024 // 1 MiB
 
 // Start the upload
-// config is an object with the keys "dumpFile", "uploadPort", "reconnectionTime", "aesKey", "aesIV", "maxUploadSpeed"
+// config is an object with the keys "uploadPort", "reconnectionTime", "aesKey", "aesIV", "maxUploadSpeed"
 // This object emits update() whenever the internal status change (check getStatus())
 Uploader.start = function (config) {
 	_config = config
-	fs.readFile(_config.dumpFile, {encoding: "utf8"}, function (err, data) {
+	fs.readFile(_dumpFile, {encoding: "utf8"}, function (err, data) {
 		if (_started)
 			throw new Error("Uploader has already been started")
 		if (err) {
 			// Create a new dump file
-			console.log("[Uploader] creating dump file: "+_config.dumpFile)
+			console.log("[Uploader] creating dump file: "+_dumpFile)
 			_tree = new Tree
 			_uploading = null
 			saveData()
@@ -285,6 +285,7 @@ function startNewChunkUpload() {
 		setFileInfo(_uploading.file, UPDATE)
 		saveData()
 		_uploading = null
+		console.log("[Updater]", "ignore for now")
 	}
 	var stats
 	
@@ -314,7 +315,11 @@ function startNewChunkUpload() {
 // Send the encoded chunk
 function uploadChunk(encodedChunk) {
 	// Get the minimum time when the next chunk upload should start
-	var nextTime = Date.now()+8*(encodedChunk.length+32)/_config.maxUploadSpeed
+	var nextTime
+	if (_config.maxUploadSpeed)
+		nextTime = Date.now()+8*(encodedChunk.length+32)/_config.maxUploadSpeed
+	else
+		nextTime = Date.now()
 	var continueUpload = function () {
 		var delta = nextTime-Date.now()
 		if (delta > 0)
@@ -373,9 +378,9 @@ var saveData = (function () {
 		data.tree = _tree
 		data.uploading = _uploading
 		try {
-			fs.writeFileSync(_config.dumpFile, JSON.stringify(data))
+			fs.writeFileSync(_dumpFile, JSON.stringify(data))
 		} catch (e) {
-			console.log("[Uploader] Error while trying to save data into "+_config.dumpFile)
+			console.log("[Uploader] Error while trying to save data into "+_dumpFile)
 		}
 		interval = null
 	}
