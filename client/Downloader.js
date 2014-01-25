@@ -11,7 +11,8 @@ var fs = require("fs")
 var Tree = require("./Tree.js")
 var connect = require("./connect.js")
 var crypto = require("crypto")
-var _dumpFile = "downloader.dump"
+var DUMP_FILE = "downloader.dump"
+var TEMP_FOLDER = "temp/"
 
 // Start the restore
 // It'll awake from the saved state (or start from scratch if it doesn't exist)
@@ -20,12 +21,12 @@ var _dumpFile = "downloader.dump"
 // taskError(taskId, errorStr) is emited when any file fails to be recovered
 Downloader.start = function (config) {
 	_config = config
-	fs.readFile(_dumpFile, {encoding: "utf8"}, function (err, data) {
+	fs.readFile(DUMP_FILE, {encoding: "utf8"}, function (err, data) {
 		if (_started)
 			throw new Error("Downloader has already been started")
 		if (err) {
 			// Create a new file watcher profile
-			console.log("[Downloader] creating dump file: "+_dumpFile)
+			console.log("[Downloader] creating dump file: "+DUMP_FILE)
 			_tasks = {}
 			_hasWork = false
 		} else {
@@ -53,10 +54,16 @@ Downloader.start = function (config) {
 	})
 	
 	// Clear temp files
-	fs.readdir(_config.tempFolder, function (err, files) {
+	try {
+		fs.mkdirSync(TEMP_FOLDER)
+	} catch (e) {
+		if (e.code != "EEXIST")
+			throw e
+	}
+	fs.readdir(TEMP_FOLDER, function (err, files) {
 		throwErr(err)
 		files.forEach(function (file) {
-			fs.unlink(_config.tempFolder+file, function () {})
+			fs.unlink(TEMP_FOLDER+file, function () {})
 		})
 	})
 }
@@ -171,7 +178,7 @@ function download(uploadId) {
 		
 		// Create the aux connection and wait for the file
 		var conn = net.connect({port: _config.downloadPort, host: _config.host})
-		var stream = fs.createWriteStream(_config.tempFolder+uploadId)
+		var stream = fs.createWriteStream(TEMP_FOLDER+uploadId)
 		conn.once("connect", function () {
 			conn.write(result.downloadToken._buffer)
 			conn.pipe(stream)
@@ -200,7 +207,7 @@ function decrypt(uploadId, originalHash) {
 	var stream = createFinalStream()
 	stream.once("open", function () {
 		// Open the temp file
-		fs.open(_config.tempFolder+uploadId, "r", function (err, fd) {
+		fs.open(TEMP_FOLDER+uploadId, "r", function (err, fd) {
 			if (err) return download(uploadId)
 			aux(fd)
 		})
@@ -252,7 +259,7 @@ function decrypt(uploadId, originalHash) {
 		hash = hash.read()
 		if (hash.toString("hex") == originalHash.toString("hex")) {
 			// Done
-			fs.unlink(_config.tempFolder+uploadId, function () {})
+			fs.unlink(TEMP_FOLDER+uploadId, function () {})
 			_file.folder.removeItem(_file.fileName)
 			_task.numFiles--
 			Downloader.emit("taskUpdate", _task.id, _task.numFiles)
@@ -314,9 +321,9 @@ function saveData() {
 	
 	var data = {format: 1, tasks: _tasks}
 	try {
-		fs.writeFileSync(_dumpFile, JSON.stringify(data))
+		fs.writeFileSync(DUMP_FILE, JSON.stringify(data))
 	} catch (e) {
-		console.log("[Downloader] Error while trying to save data into "+_dumpFile)
+		console.log("[Downloader] Error while trying to save data into "+DUMP_FILE)
 	}
 }
 saveData.counter = 0
