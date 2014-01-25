@@ -6,6 +6,7 @@
 
 var fs = require("fs")
 var path = require("path")
+var spawn = require('child_process').spawn
 var Configer = require("./Configer.js")
 var UPDATER_DUMP = "updater.dump"
 var TEMP_FOLDER = "tempUpdater/"
@@ -22,6 +23,7 @@ function start() {
 	removeOld(modes)
 	replaceAndMerge(modes)
 	clearFolder()
+	restart()
 }
 
 // Remove files that were not told to be keeped (sync)
@@ -51,8 +53,8 @@ function replaceAndMerge(modes) {
 			} catch (e) {
 				if (e.code != "ENOENT")
 					throw e
-				moveFile(oldPath, fileName)
 			}
+			moveFile(oldPath, fileName)
 		} else if (modes[fileName] == MODE_REPLACE)
 			moveFile(oldPath, fileName)
 	}
@@ -96,4 +98,20 @@ function moveFile(oldPath, newPath) {
 	// Save the file
 	newPath = newPath.join("/")
 	fs.renameSync(oldPath, newPath)
+}
+
+function restart() {
+	var out = fs.openSync("client.log", "a")
+	var err = fs.openSync("client.log", "a")
+	
+	// Start the install process
+	spawn("node", [path.resolve("index.js")], {
+		detached: true,
+		stdio: ["ignore", out, err]
+	})
+	
+	// Shutdown this process
+	setTimeout(function () {
+		process.abort()
+	}, 3e3)
 }

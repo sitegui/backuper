@@ -7,6 +7,7 @@ var net = require("net")
 var fs = require("fs")
 var crypto = require("crypto")
 var path = require("path")
+var spawn = require('child_process').spawn
 
 // Set-up async context
 var cntxt = new aP
@@ -167,7 +168,20 @@ function downloadFile() {
 // Update ready to be installed
 function install() {
 	fs.writeFileSync(UPDATER_DUMP, JSON.stringify(_modes))
-	process.abort()
+	
+	var out = fs.openSync("client.log", "a")
+	var err = fs.openSync("client.log", "a")
+	
+	// Start the install process
+	spawn("node", [path.resolve("install.js")], {
+		detached: true,
+		stdio: ["ignore", out, err]
+	})
+	
+	// Shutdown this process
+	setTimeout(function () {
+		process.abort()
+	}, 3e3)
 }
 
 // Save the given data to a file in the given path (sync)

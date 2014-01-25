@@ -45,13 +45,15 @@ module.exports.merge = function (originalPath, newPath) {
 	var stringifyProp = function (obj, name) {
 		// Comments
 		obj.comments.forEach(function (comment) {
-			pushRow("# "+comment, true, false)
+			pushRow("# "+comment, false, false)
 		})
 		
 		var value = Array.isArray(obj.value) ? obj.value : [obj.value]
 		value.forEach(function (each) {
 			pushRow(name+" "+each, false, false)
 		})
+		
+		pushRow("", false, true)
 	}
 	
 	// Put a new row in the file
@@ -59,7 +61,8 @@ module.exports.merge = function (originalPath, newPath) {
 	var pushRow = function (str, spaceBefore, spaceAfter) {
 		if (spaceBefore && !pushRow._spaced)
 			rows.push("")
-		rows.push(str)
+		if (str)
+			rows.push(str)
 		if (spaceAfter)
 			rows.push("")
 		pushRow._spaced = spaceAfter

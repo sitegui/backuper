@@ -55,6 +55,9 @@ function loadVersion() {
 	// Copy files to final location
 	var scan = function (path, prefix) {
 		fs.readdirSync(path).forEach(function (item) {
+			if (prefix+item == "temp" || prefix+item == "tempUpdater")
+				// Ignored folders
+				return
 			if (fs.statSync(path+"/"+item).isDirectory())
 				// Recursive scan
 				scan(path+"/"+item, prefix+item+"/")
