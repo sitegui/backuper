@@ -56,9 +56,10 @@ To continue the download, the client should open another connection to downloadP
 Return the lastest client version string
 If the current version is different, the client should close the connection and update itself first
 
-## #12 getUpdateFileList(version: string) -> files[]: string
+## #12 getUpdateFileList(version: string) -> files[]: (name: string, mode: uint)
 Throw invalidVersion if the given version isn't the last one anymore
 Return the list of file paths to download
+mode is 0 (MODE_KEEP), 1 (MODE_REPLACE) or 2 (MODE_CONFIG_MERGE)
 
 ## #13 getUpdatedFile(file: string, version: string) -> data: Buffer, hash: Buffer
 Throws: "invalidVersion", "invalidFile"

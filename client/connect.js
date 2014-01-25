@@ -3,6 +3,8 @@
 var config = require("./config.js").connect
 var aP = require("async-protocol")
 var net = require("net")
+var fs = require("fs")
+var Updater = require("./Updater.js")
 
 aP.setMaxBufferLength(100*1024*1024) // 100 MiB
 
@@ -25,11 +27,19 @@ cntxt.registerClientCall("#7 removeFile(filePath: Buffer)")
 cntxt.registerClientCall("#8 getFilesInfo -> files[]: (path: Buffer, versions[]: (size: uint, mtime: int, id: string))")
 cntxt.registerClientCall("#9 getQuotaUsage -> total: uint, free: uint, softUse: uint")
 cntxt.registerClientCall("#10 requestFileDownload(uploadId: string) -> downloadToken: token, size: uint, originalHash: Buffer")
+cntxt.registerClientCall("#11 getCurrentVersion -> version: string")
+
+// Get current version
+var _version = JSON.parse(fs.readFileSync("package.json", {encoding: "utf8"})).version
 
 // Try to connect with the backuper server
 // callback(conn) isn't optional and will be called after the login
 // If something went wrong, conn will be null
 module.exports = function (callback) {
+	if (Updater.isUpdating())
+		// Can't talk to the server until update is done
+		return callback(null)
+	
 	var conn = net.connect({port: config.port, host: config.host})
 	conn.once("error", function () {
 		callback(null)
@@ -37,13 +47,27 @@ module.exports = function (callback) {
 	conn.once("connect", function () {
 		conn.removeAllListeners()
 		conn = cntxt.wrapSocket(conn)
-		conn.call("login", {userName: config.userName, password: config.loginKey}, function (err) {
-			if (err) {
-				console.error("[connect] login failed")
+		// Check for updates
+		conn.call("getCurrentVersion", null, function (err, result) {
+			if (err || result.version != _version) {
 				callback(null)
 				conn.close()
+				if (!err)
+					Updater.setNeedUpdate(result.version)
 			} else
-				callback(conn)
+				doLogin(conn, callback)
 		})
+	})
+}
+
+// Login, given an open connection
+function doLogin(conn, callback) {
+	conn.call("login", {userName: config.userName, password: config.loginKey}, function (err) {
+		if (err) {
+			console.error("[connect] login failed")
+			callback(null)
+			conn.close()
+		} else
+			callback(conn)
 	})
 }

@@ -106,10 +106,13 @@ function registerCalls(cntxt) {
 		answer({version: _version})
 	})
 	
-	cntxt.registerClientCall("#12 getUpdateFileList(version: string) -> files[]: string", function (args, answer) {
+	cntxt.registerClientCall("#12 getUpdateFileList(version: string) -> files[]: (name: string, mode: uint)", function (args, answer) {
+		var files = [], name
 		if (args.version != _version)
 			return answer(new Exception("invalidVersion"))
-		answer({files: Object.keys(_files)})
+		for (name in _files)
+			files.push({name: name, mode: _files[name].mode})
+		answer({files: files})
 	})
 	
 	cntxt.registerClientCall("#13 getUpdatedFile(file: string, version: string) -> data: Buffer, hash: Buffer", function (args, answer) {
