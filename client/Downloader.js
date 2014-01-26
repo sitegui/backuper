@@ -203,12 +203,20 @@ function decrypt(uploadId, originalHash) {
 	var buffer = new Buffer(ENCRYPTED_CHUNK_SIZE)
 	var hash = crypto.createHash("sha1")
 	
+	var tryAgain = function () {
+		try {
+			fs.unlinkSync(path.join(_task.destination, _file.fullPath))
+		} catch (e) {
+		}
+		download(uploadId)
+	}
+	
 	// Open the final file
 	var stream = createFinalStream()
 	stream.once("open", function () {
 		// Open the temp file
 		fs.open(TEMP_FOLDER+uploadId, "r", function (err, fd) {
-			if (err) return download(uploadId)
+			if (err) return tryAgain()
 			aux(fd)
 		})
 	})
@@ -221,7 +229,7 @@ function decrypt(uploadId, originalHash) {
 		fs.read(fd, buffer, 0, ENCRYPTED_CHUNK_SIZE, null, function (err, bytesRead) {
 			if (err) {
 				fs.close(fd, throwErr)
-				return download(uploadId)
+				return tryAgain()
 			}
 			
 			// Decrypt
@@ -233,7 +241,7 @@ function decrypt(uploadId, originalHash) {
 				if (!_hashFailed) {
 					// May be an error with the download, try again
 					_hashFailed = true
-					return download(uploadId)
+					return tryAgain()
 				} else {
 					// The key (or worst, the uploaded data) is wrong
 					return pushError("could not decrypt file, check your key")
@@ -268,7 +276,7 @@ function decrypt(uploadId, originalHash) {
 		} else if (!_hashFailed) {
 			// May be an error with the download, try again
 			_hashFailed = true
-			download(uploadId)
+			tryAgain()
 		} else {
 			// The key (or worst, the uploaded data) is wrong
 			pushError("could not decrypt file, check your key")

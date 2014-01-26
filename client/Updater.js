@@ -169,8 +169,8 @@ function downloadFile() {
 function install() {
 	fs.writeFileSync(UPDATER_DUMP, JSON.stringify(_modes))
 	
-	var out = fs.openSync("client.log", "a")
-	var err = fs.openSync("client.log", "a")
+	var out = fs.openSync("install.log", "a")
+	var err = fs.openSync("install.log", "a")
 	
 	// Start the install process
 	spawn("node", [path.resolve("install.js")], {
