@@ -19,6 +19,7 @@ var CHUNK_SIZE = 1*1024*1024 // 1 MiB
 // Start the upload
 // config is an object with the keys "uploadPort", "reconnectionTime", "aesKey", "aesIV", "maxUploadSpeed"
 // This object emits update() whenever the internal status change (check getStatus())
+// Emits ignoreFile(file) whenever a given file could not be processed now (like when it's locked)
 Uploader.start = function (config) {
 	_config = config
 	fs.readFile(_dumpFile, {encoding: "utf8"}, function (err, data) {
@@ -237,6 +238,7 @@ function createUploadSession() {
 	source.once("error", function () {
 		// Ignore this file
 		fine = false
+		Uploader.emit("ignoreFile", _uploading.file)
 		_uploading = null
 		saveData()
 		stepUploadSequence()
@@ -278,14 +280,13 @@ function createUploadSession() {
 function startNewChunkUpload() {
 	var ignoreForNow = function () {
 		// Put the file back in the queue and stop the process for now
-		if (_conn) {
+		if (_conn)
 			_conn.call("cancelUpload", {id: _uploading.id})
-			_conn.close()
-		}
-		setFileInfo(_uploading.file, UPDATE)
-		saveData()
+		
+		Uploader.emit("ignoreFile", _uploading.file)
 		_uploading = null
-		console.log("[Updater]", "ignore for now")
+		saveData()
+		stepUploadSequence()
 	}
 	var stats
 	

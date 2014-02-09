@@ -1,6 +1,6 @@
 {
   "name": "backuper-client",
-  "version": "0.1.12",
+  "version": "0.1.14",
   "author": "Sitegui <sitegui@sitegui.com.br>",
   "description": "",
   "main": "./index.js",

@@ -117,6 +117,13 @@ Watcher.getTree = function () {
 	return _tree.toJSON()
 }
 
+// Tell watcher to forget a given file for now
+// In the next cicle, this file will be detected as new
+Watcher.forgetFile = function (file) {
+	var folder = _tree.getFolder(path.dirname(file))
+	folder.removeItem(path.basename(file))
+}
+
 /*
 Internals
 */

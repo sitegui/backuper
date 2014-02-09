@@ -19,6 +19,7 @@ Uploader.on("start", function () {
 	Watcher.on("fileremove", function (file) {
 		Uploader.queueFileRemove(file)
 	})
+	Uploader.on("ignoreFile", Watcher.forgetFile)
 })
 Downloader.start(config.downloader)
 
