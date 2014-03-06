@@ -6,6 +6,8 @@ var config = require("./config.js")
 var ui = require("./UIServer.js")
 var Downloader = require("./Downloader.js")
 
+console.log("[index.js] "+new Date)
+
 // Set-up uploader
 Uploader.start(config.uploader)
 Uploader.on("start", function () {

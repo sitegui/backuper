@@ -14,11 +14,18 @@ var MODE_KEEP = 0 // don't update in the client side
 var MODE_REPLACE = 1 // replace by the lastest version
 var MODE_CONFIG_MERGE = 2 // merge config files
 
+console.log("[install.js] "+new Date)
+
 // Wait a little to the parent node process to close
 setTimeout(start, 5e3)
 
 function start() {
 	var modes = JSON.parse(fs.readFileSync(UPDATER_DUMP, {encoding: "utf8"}))
+	
+	// Log
+	var oldVersion = JSON.parse(fs.readFileSync("package.json", {encoding: "utf8"})).version
+	var newVersion = JSON.parse(fs.readFileSync(TEMP_FOLDER+"package.json", {encoding: "utf8"})).version
+	console.log("Updating from version "+oldVersion+" to "+newVersion)
 	
 	removeOld(modes)
 	replaceAndMerge(modes)

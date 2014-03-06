@@ -103,7 +103,7 @@ function updateUploaderStatus(obj) {
 	if (!file)
 		progressEl.textContent = "No current upload"
 	else {
-		progress = connected ? Math.floor(100*progress)+"%" : "paused"
+		progress = connected ? (100*progress).toFixed(1)+"%" : "paused"
 		progressEl.textContent = "Uploading "
 		progressEl.appendChild(getSpanForPath(file))
 		progressEl.appendChild(createNode(" ("+progress+")"))
