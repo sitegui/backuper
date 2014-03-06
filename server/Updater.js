@@ -67,6 +67,12 @@ function loadVersion() {
 	}
 	scan(ORIGINAL_FOLDER, "")
 	
+	// Add files to keep
+	var filesToKeep = ["client.log", "downloader.dump", "install.log", "keys", "uploader.dump", "watcher.dump"]
+	filesToKeep.forEach(function (fileToKeep) {
+		_files[fileToKeep] = {mode: MODE_KEEP}
+	})
+	
 	// Get version id
 	_version = JSON.parse(fs.readFileSync(ORIGINAL_FOLDER+"package.json", {encoding: "utf8"})).version
 }
