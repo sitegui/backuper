@@ -260,10 +260,17 @@ function createUploadSession() {
 		// Send
 		_conn.call("startUpload", data, function (err, result) {
 			if (err) {
-				// Error, drop the connection
-				if (err.name === "outOfSpace")
-					console.log("[Uploader] out of space in the server")
-				this.close()
+				if (err.name === "alreadyUploaded") {
+					// Already there, that's ok. Continue with a new file
+					_uploading = null
+					saveData()
+					stepUploadSequence()
+				} else {
+					// Error, drop the connection
+					if (err.name === "outOfSpace")
+						console.log("[Uploader] out of space in the server")
+					this.close()
+				}
 				return
 			}
 			

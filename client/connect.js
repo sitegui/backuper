@@ -17,6 +17,7 @@ cntxt.registerException("#4 loginError")
 cntxt.registerException("#5 wrongSize")
 cntxt.registerException("#6 corruptedData")
 cntxt.registerException("#7 notFound")
+cntxt.registerException("#10 alreadyUploaded")
 
 cntxt.registerClientCall("#1 login(userName: string, password: token)")
 cntxt.registerClientCall("#2 startUpload(filePath: Buffer, mtime: int, size: uint, originalHash: Buffer) -> uploadId: string")

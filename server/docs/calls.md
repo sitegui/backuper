@@ -9,6 +9,7 @@
 ## #7 notFound
 ## #8 invalidVersion
 ## #9 invalidFile
+## #10 alreadyUploaded
 
 # Client calls
 
@@ -17,10 +18,11 @@ Throws: "loginError"
 The password is stored in the first 16B of "keys" file
 
 ## #2 startUpload(filePath: Buffer, mtime: int, size: uint, originalHash: Buffer) -> uploadId: string
-Throws: "notLoggedIn", "outOfSpace"
+Throws: "notLoggedIn", "outOfSpace", "alreadyUploaded"
 originalHash is the sha1 of the original (decrypted) file
 Create a new upload session for a given file
 Return the session id that should be used to upload each file chunk
+If a file with the same path, size and hash is already present, alreadyUploaded will be thrown
 
 ## #3 uploadChunk(uploadId: string, hash: Buffer, chunk: Buffer)
 Throws: "notLoggedIn", "invalidSession", "corruptedData"

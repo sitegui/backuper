@@ -18,6 +18,7 @@ cntxt.registerException("#4 loginError")
 cntxt.registerException("#5 wrongSize")
 cntxt.registerException("#6 corruptedData")
 cntxt.registerException("#7 notFound")
+cntxt.registerException("#10 alreadyUploaded")
 
 var CHUNK_SIZE = 1*1024*1024 // 1 MiB
 
@@ -100,7 +101,7 @@ cntxt.registerClientCall("#2 startUpload(filePath: Buffer, mtime: int, size: uin
 	if (!user)
 		return answer(new aP.Exception("notLoggedIn"))
 	
-	freeSpace(args.size, user, function (sucess) {
+	var onFreeSpace = function (sucess) {
 		if (!sucess)
 			return answer(new aP.Exception("outOfSpace"))
 		
@@ -127,6 +128,19 @@ cntxt.registerClientCall("#2 startUpload(filePath: Buffer, mtime: int, size: uin
 				})
 			})
 		})
+	}
+	
+	var data = {
+		user: user.name,
+		path: args.filePath,
+		size: args.size,
+		originalHash: args.originalHash
+	}
+	_db.collection("files").findOne(data, function (err, result) {
+		throwError(err)
+		if (result)
+			return answer(new aP.Exception("alreadyUploaded"))
+		freeSpace(args.size, user, onFreeSpace)
 	})
 })
 
