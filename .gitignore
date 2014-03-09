@@ -1,5 +1,6 @@
 keys
 node_modules
 *.dump
+*.log
 server/data
 temp
