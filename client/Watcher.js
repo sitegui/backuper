@@ -142,10 +142,11 @@ var saveData = function () {
 	data.queue = _queue
 	data.tree = _tree
 	data.lastCicleTime = _lastCicleTime
-	fs.writeFile(_dumpFile, JSON.stringify(data), function (err) {
-		if (err)
-			console.error("[Watcher] Error while trying to save data into "+_dumpFile)
-	})
+	try {
+		fs.writeFileSync(_dumpFile, JSON.stringify(data))
+	} catch (e) {
+		console.error("[Watcher] Error while trying to save data into "+_dumpFile)
+	}
 }
 
 // Execute each step
