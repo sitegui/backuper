@@ -112,7 +112,7 @@ function parse(path, raw) {
 	
 	var saveValue = function (obj) {
 		if (name in obj) {
-			if (!Array.isArray(obj[name]))
+			if (!Array.isArray(obj[name].value))
 				obj[name] = {comments: obj[name].comments, value: [obj[name].value]}
 			obj[name].comments = obj[name].comments.concat(comments)
 			obj[name].value.push(value)
